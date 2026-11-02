@@ -6,7 +6,7 @@ from flask import (Blueprint, abort, current_app, flash, g, redirect, render_tem
                    request, send_from_directory, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import backup, holidays, notify
+from . import backup, gcal, holidays, notify
 from .audit import log
 from .db import get_db, get_settings, set_setting
 from .utils import commission_label, parse_int, parse_money
@@ -28,6 +28,9 @@ def index():
         token_hint=("…" + s["telegram_token"][-4:]) if s["telegram_token"] else "",
         special_days=db.execute("SELECT * FROM special_days ORDER BY start_date DESC LIMIT 100").fetchall(),
         upcoming=holidays.upcoming(db, date.today(), 120),
+        gcal_status=gcal.status_text(s), gcal_connected=gcal.is_connected(s), gcal_configured=gcal.is_configured(s),
+        gcal_redirect=url_for("gcal.callback", _external=True),
+        portal_count=db.execute("SELECT COUNT(*) FROM portal_users WHERE active = 1").fetchone()[0],
     )
 
 
@@ -184,6 +187,19 @@ def download_backup(name):
 
 
 # ------------------------------------------------------------ Telegram bildirimleri
+
+@bp.route("/ayarlar/portal", methods=["POST"])
+def save_portal():
+    url = request.form.get("portal_url", "").strip().rstrip("/")
+    if not re.fullmatch(r"https?://[\w.\-]+(:\d+)?(/[\w.\-/]*)?", url):
+        flash("Geçerli bir adres girin (ör. https://portal.eneskayar.com).", "error")
+        return redirect(url_for("settings.index") + "#portal")
+    set_setting("portal_url", url)
+    log("Portal adresi değişti", url, "settings")
+    get_db().commit()
+    flash("Portal adresi kaydedildi.", "success")
+    return redirect(url_for("settings.index") + "#portal")
+
 
 @bp.route("/ayarlar/telegram", methods=["POST"])
 def save_telegram():

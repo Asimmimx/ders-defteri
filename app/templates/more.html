@@ -3,6 +3,7 @@
 {% block content %}
 <div class="page-head"><h1>Daha fazla</h1></div>
 <div class="card more-list">
+  <a href="{{ url_for('lessons.index') }}">{{ icon('book') }} <span>Ders kayıtları</span></a>
   <a href="{{ url_for('notes.index') }}">{{ icon('note') }} <span>Notlar</span></a>
   <a href="{{ url_for('reports.index') }}">{{ icon('chart') }} <span>Raporlar</span></a>
   <a href="{{ url_for('settings.index') }}">{{ icon('settings') }} <span>Ayarlar</span></a>

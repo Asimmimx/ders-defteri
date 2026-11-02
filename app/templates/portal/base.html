@@ -1,0 +1,44 @@
+{% from "_icons.html" import icon %}
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta name="theme-color" content="#3d6bff">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=8">
+  <title>{% block title %}Portal{% endblock %} · Enes Kayar Ders Portalı</title>
+</head>
+<body>
+{% set ep = request.endpoint or '' %}
+{% if g.portal %}
+<header class="portal-top">
+  <div class="brand"><span class="logo">EK</span> Ders Portalı</div>
+  <nav class="portal-nav">
+    <a href="{{ url_for('portal.home') }}" class="{{ 'active' if ep == 'portal.home' }}">Ana sayfa</a>
+    <a href="{{ url_for('portal.program') }}" class="{{ 'active' if ep == 'portal.program' }}">Program</a>
+    <a href="{{ url_for('portal.lessons') }}" class="{{ 'active' if ep == 'portal.lessons' }}">İşlenen konular</a>
+    {% if g.portal.role == 'parent' %}<a href="{{ url_for('portal.payments') }}" class="{{ 'active' if ep == 'portal.payments' }}">Ödemeler</a>{% endif %}
+  </nav>
+  <div class="small">
+    <strong>{{ g.portal.display_name }}</strong> · <a href="{{ url_for('portal.password') }}">Şifre</a> ·
+    <form method="post" action="{{ url_for('portal.logout') }}" class="inline">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="link-btn small">Çıkış</button>
+    </form>
+  </div>
+</header>
+{% endif %}
+<main class="portal-main">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=7"></script>
+</body>
+</html>

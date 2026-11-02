@@ -17,11 +17,12 @@
   ('payments.index', 'Ödemeler', 'wallet', ['payments.']),
   ('schedule.index', 'Program', 'calendar', ['schedule.']),
   ('commission.index', 'Komisyon', 'percent', ['commission.']),
+  ('lessons.index', 'Dersler', 'book', ['lessons.']),
   ('notes.index', 'Notlar', 'note', ['notes.']),
   ('reports.index', 'Raporlar', 'chart', ['reports.']),
   ('settings.index', 'Ayarlar', 'settings', ['settings.']),
 ] %}
-{% set mobile_nav = nav[:5] + [('main.more', 'Daha', 'menu', ['main.more', 'notes.', 'reports.', 'settings.'])] %}
+{% set mobile_nav = nav[:5] + [('main.more', 'Daha', 'menu', ['main.more', 'lessons.', 'notes.', 'reports.', 'settings.'])] %}
 {% macro is_active(prefixes, ep) -%}
   {%- set ns = namespace(a=false) -%}
   {%- for p in prefixes %}{% if ep.startswith(p) %}{% set ns.a = true %}{% endif %}{% endfor -%}
@@ -59,7 +60,7 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='js/app.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=7"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

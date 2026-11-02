@@ -95,6 +95,11 @@
         <label>Not</label>
         <input type="text" id="dlg-note" maxlength="200" placeholder="ör. Matematik">
       </div>
+      <div class="field">
+        <label for="dlg-topic">Derste işlenen konu</label>
+        <textarea id="dlg-topic" maxlength="2000" rows="3" placeholder="ör. Türev: zincir kuralı, 12 soru çözüldü"></textarea>
+        <div class="hint">Veli ve öğrenci portalda görür. <a href="#" id="dlg-lesson-link">PDF ekle / ödev yaz →</a> <span id="dlg-files"></span></div>
+      </div>
     </div>
     <div class="dlg-actions">
       <button value="delete" class="btn danger" style="margin-right:auto">Sil</button>
@@ -131,5 +136,5 @@
 {% block scripts %}
 <script>window.DAYS = {{ DAYS | tojson }};</script>
 <script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/schedule.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=8"></script>
 {% endblock %}

@@ -1,0 +1,14 @@
+{% extends "portal/base.html" %}
+{% block title %}İşlenen konular{% endblock %}
+{% block content %}
+<h1>İşlenen konular</h1>
+{% if students | length > 1 %}
+<div class="tabs" style="margin:12px 0;display:inline-flex">
+  <a href="{{ url_for('portal.lessons') }}" class="{{ 'active' if not sid }}">Hepsi</a>
+  {% for s in students %}<a href="{{ url_for('portal.lessons', ogrenci=s.id) }}" class="{{ 'active' if s.id == sid }}">{{ s.name }}</a>{% endfor %}
+</div>
+{% endif %}
+<div class="card" style="margin-top:12px">
+  {% with show_student = students | length > 1 %}{% include "portal/_lesson_list.html" %}{% endwith %}
+</div>
+{% endblock %}

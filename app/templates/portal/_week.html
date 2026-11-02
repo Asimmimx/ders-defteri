@@ -1,0 +1,16 @@
+<div class="week-list">
+{% for d in days %}
+  <div class="day">
+    <h3>{{ d.name }} <span class="muted">· {{ d.label }}</span>
+      {% for x in d.info %}<span class="badge {{ 'overdue' if x.kind == 'resmi' else 'info' }}">{{ x.name }}{{ ' (yarım gün)' if x.half }}</span>{% endfor %}
+      {% if today is defined and d.iso == today %}<span class="badge paid">Bugün</span>{% endif %}</h3>
+    {% for s in d.slots %}
+      <div class="slot"><span class="time">{{ portal_hhmm(s.start_min) }}</span>
+        <span class="dot" style="background:{{ s.color }}"></span>{{ s.student_name }}
+        <span class="muted small">· {{ 'Online' if s.lesson_type == 'online' else 'Yüz yüze' }}</span></div>
+    {% else %}
+      <div class="small muted">Ders yok</div>
+    {% endfor %}
+  </div>
+{% endfor %}
+</div>

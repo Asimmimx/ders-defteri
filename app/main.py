@@ -1,6 +1,6 @@
 import re
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
 
 from .audit import log
 from .db import get_db, get_settings
@@ -168,8 +168,13 @@ def parent_detail(pid):
     pending_total = sum(p["amount"] for p in payments if p["status"] == "pending")
     paid_total = sum(p["paid_amount"] or 0 for p in payments if p["status"] == "paid")
     default_label = commission_label(settings["commission_type"], settings["commission_value"])
+    from .access import accounts_for_parent
+    cred = session.pop("portal_cred", None)
+    if cred and cred.get("pid") != pid:
+        cred = None
     return render_template(
         "parent_detail.html", parent=parent, students=students, payments=payments,
+        accounts=accounts_for_parent(db, pid), cred=cred, portal_url=settings["portal_url"],
         pending_total=pending_total, paid_total=paid_total, default_label=default_label,
         commission_label=commission_label, today=today_iso(), balance=parent_balance(db, pid),
     )
@@ -299,6 +304,8 @@ def student_delete(sid):
     if db.execute("SELECT COUNT(*) FROM payments WHERE student_id = ?", (sid,)).fetchone()[0]:
         flash("Bu öğrencinin ödeme kayıtları var; silmek yerine 'Pasif' yapın.", "error")
         return redirect(url_for("main.parent_detail", pid=student["parent_id"]))
+    from .lessons import delete_lesson_files
+    delete_lesson_files(db, [r[0] for r in db.execute("SELECT id FROM lessons WHERE student_id = ?", (sid,))])
     db.execute("DELETE FROM students WHERE id = ?", (sid,))
     log("Öğrenci silindi", student["name"], "student", sid)
     db.commit()

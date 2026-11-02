@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request
 from .audit import log
 from .db import get_db, get_settings
 from .holidays import days_info
+from . import lessons as lesson_mod
 from .utils import DAYS, MONTHS, minutes_to_hhmm, parse_int, today_iso
 
 bp = Blueprint("schedule", __name__)
@@ -82,8 +83,11 @@ def api_list():
     week = _week_from(request.args) or monday_of().isoformat()
     monday = date.fromisoformat(week)
     rows = db.execute(
-        """SELECT sl.*, s.name student_name, s.color FROM schedule_slots sl
-           JOIN students s ON s.id = sl.student_id WHERE sl.week_start = ? ORDER BY sl.day, sl.start_min""",
+        """SELECT sl.*, s.name student_name, s.color, l.id lesson_id, COALESCE(l.topic, '') topic,
+                  (SELECT COUNT(*) FROM lesson_files f WHERE f.lesson_id = l.id) file_count
+           FROM schedule_slots sl JOIN students s ON s.id = sl.student_id
+           LEFT JOIN lessons l ON l.slot_id = sl.id
+           WHERE sl.week_start = ? ORDER BY sl.day, sl.start_min""",
         (week,),
     ).fetchall()
     busy = db.execute("SELECT * FROM busy_blocks WHERE week_start = ? ORDER BY day, start_min", (week,)).fetchall()
@@ -148,6 +152,13 @@ def _student_name(db, sid):
     return row["name"] if row else f"#{sid}"
 
 
+def _before_delete(db, slot):
+    """Ders silinmeden önce: ders kaydını koru/temizle, Google'daki etkinliği silinecekler listesine al."""
+    lesson_mod.before_slot_delete(db, slot["id"])
+    if slot["gcal_event_id"]:
+        db.execute("INSERT OR IGNORE INTO gcal_trash(event_id) VALUES (?)", (slot["gcal_event_id"],))
+
+
 # ---------------------------------------------------------- Dersler
 
 @bp.route("/api/program", methods=["POST"])
@@ -170,6 +181,9 @@ def api_create():
            VALUES (?, ?, ?, ?, ?, ?)""",
         (sid, week, vals["day"], vals["start_min"], vals.get("lesson_type", "inperson"), vals.get("note", "")),
     )
+    lesson_mod.relink_slot(db, cur.lastrowid)
+    if data.get("topic"):
+        lesson_mod.set_topic_for_slot(db, cur.lastrowid, data.get("topic"))
     log("Programa ders eklendi", f"{_student_name(db, sid)} · {_when(week, vals['day'], vals['start_min'])}"
         f" · {'online' if vals.get('lesson_type') == 'online' else 'yüz yüze'}", "slot", cur.lastrowid)
     db.commit()
@@ -186,21 +200,27 @@ def api_update(slot_id):
     old = db.execute("SELECT * FROM schedule_slots WHERE id = ?", (slot_id,)).fetchone()
     if old is None:
         return {"error": "Bulunamadı"}, 404
+    topic_changed = "topic" in data and lesson_mod.set_topic_for_slot(db, slot_id, data.get("topic"))
     if not vals:
+        if topic_changed:
+            log("Derste işlenen konu girildi", f"{_student_name(db, old['student_id'])} · "
+                f"{_when(old['week_start'], old['day'], old['start_min'])}", "slot", slot_id)
+            db.commit()
         return {"ok": True}
     day, m = vals.get("day", old["day"]), vals.get("start_min", old["start_min"])
     moved = (day, m) != (old["day"], old["start_min"])
     if moved and _is_busy(db, old["week_start"], day, m):
         return {"error": BUSY_MSG}, 409
     sets = ", ".join(f"{k} = ?" for k in vals)
-    db.execute(f"UPDATE schedule_slots SET {sets} WHERE id = ?", (*vals.values(), slot_id))
+    db.execute(f"UPDATE schedule_slots SET {sets}, gcal_synced = 0 WHERE id = ?", (*vals.values(), slot_id))
+    lesson_mod.sync_from_slot(db, slot_id)
     name = _student_name(db, old["student_id"])
     if moved:
         log("Programda ders taşındı", f"{name} · {_when(old['week_start'], old['day'], old['start_min'])} → "
             f"{_when(old['week_start'], day, m)}", "slot", slot_id)
     else:
-        log("Programda ders düzenlendi", f"{name} · {_when(old['week_start'], old['day'], old['start_min'])}",
-            "slot", slot_id)
+        log("Programda ders düzenlendi", f"{name} · {_when(old['week_start'], old['day'], old['start_min'])}"
+            + (" · konu girildi" if topic_changed else ""), "slot", slot_id)
     db.commit()
     return {"ok": True}
 
@@ -209,6 +229,8 @@ def api_update(slot_id):
 def api_delete(slot_id):
     db = get_db()
     old = db.execute("SELECT * FROM schedule_slots WHERE id = ?", (slot_id,)).fetchone()
+    if old:
+        _before_delete(db, old)
     db.execute("DELETE FROM schedule_slots WHERE id = ?", (slot_id,))
     if old:
         log("Programdan ders silindi", f"{_student_name(db, old['student_id'])} · "
@@ -235,7 +257,7 @@ def api_copy_week():
         return {"error": "Aynı hafta"}, 400
     db = get_db()
     added = skipped = 0
-    for b in db.execute("SELECT * FROM busy_blocks WHERE week_start = ?", (source,)).fetchall():
+    for b in db.execute("SELECT * FROM busy_blocks WHERE week_start = ? AND source != 'gcal'", (source,)).fetchall():
         if _is_busy(db, target, b["day"], b["start_min"]) or _has_lesson(db, target, b["day"], b["start_min"]):
             skipped += 1
             continue
@@ -275,6 +297,8 @@ def api_clear_week():
     if not week:
         return {"error": "Geçersiz hafta"}, 400
     db = get_db()
+    for s in db.execute("SELECT * FROM schedule_slots WHERE week_start = ?", (week,)).fetchall():
+        _before_delete(db, s)
     n1 = db.execute("DELETE FROM schedule_slots WHERE week_start = ?", (week,)).rowcount
     n2 = db.execute("DELETE FROM busy_blocks WHERE week_start = ?", (week,)).rowcount
     if n1 or n2:

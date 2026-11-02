@@ -1,0 +1,12 @@
+{% extends "portal/base.html" %}
+{% block title %}Ders programı{% endblock %}
+{% block content %}
+<h1>Ders programı</h1>
+<div class="week-bar" style="margin:12px 0">
+  <a class="btn sm" href="?hafta={{ prev }}" title="Önceki hafta">←</a>
+  <div class="week-title"><strong>{{ label }}</strong> {% if is_this_week %}<span class="badge info">Bu hafta</span>{% endif %}</div>
+  <a class="btn sm" href="?hafta={{ next }}" title="Sonraki hafta">→</a>
+  {% if not is_this_week %}<a class="btn sm" href="?hafta={{ this_week }}">Bu haftaya dön</a>{% endif %}
+</div>
+<div class="card">{% include "portal/_week.html" %}</div>
+{% endblock %}

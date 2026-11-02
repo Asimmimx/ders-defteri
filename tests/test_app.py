@@ -200,8 +200,18 @@ class AppFlowTest(unittest.TestCase):
         self.assertEqual(self.c.delete(f"/api/dolu/{bid}", headers=h).status_code, 200)
         self.assertEqual(len(self.c.get("/api/program").get_json()["busy"]), 1)
 
+        # Derste işlenen konu (ders kaydı) ve portal hesabı
+        r = self.c.patch(f"/api/program/{lesson_id}", json={"topic": "Kesirler"}, headers=h)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.c.get("/api/program").get_json()["slots"][0]["topic"], "Kesirler")
+        r = self.c.post(f"/veliler/{pid}/portal", data={"_csrf": t})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("Kullanıcı adı:", self.c.get(f"/veliler/{pid}").get_data(as_text=True))
+
         # Tüm sayfalar açılıyor
-        for path in ["/", "/veliler", f"/veliler/{pid}", "/odemeler", "/odemeler?durum=paid", "/odemeler/yeni",
+        self.assertIn("/dersler/", self.c.get(f"/dersler/program/{lesson_id}").headers["Location"])
+        for path in ["/dersler", "/dersler/yeni", "/daha", self.c.get(f"/dersler/program/{lesson_id}").headers["Location"],
+                     "/", "/veliler", f"/veliler/{pid}", "/odemeler", "/odemeler?durum=paid", "/odemeler/yeni",
                      f"/odemeler/{pay_id}/duzenle", "/program", "/komisyon", "/ayarlar", "/notlar",
                      f"/ogrenciler/{st['id']}/duzenle", f"/veliler/{pid}/duzenle"]:
             self.assertEqual(self.c.get(path).status_code, 200, path)

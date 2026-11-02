@@ -22,6 +22,8 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 - [Yedekleme ve geri yükleme](#yedekleme-ve-geri-yükleme)
 - [Mesaj taslakları](#mesaj-taslakları)
 - [Komisyon hesabı](#komisyon-hesabı)
+- [Veli / öğrenci portalı](#veli--öğrenci-portalı)
+- [Google Takvim (taslak)](#google-takvim-taslak)
 - [Güvenlik](#güvenlik)
 - [Proje yapısı](#proje-yapısı)
 - [Yönetim komutları](#yönetim-komutları)
@@ -42,6 +44,9 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 | 💰 **Asistan komisyonu** | Varsayılan olarak yüzde veya saat başı sabit tutar; öğrenciye özel oran tanımlanabilir. Kazanılan, ödenen ve kalan bakiye ayrı sayfada. |
 | 📅 **Haftalık program** | Tarihli, hafta hafta gezilebilen program; her haftanın programı ayrıdır, "Geçen haftayı kopyala" ile tek tıkla doldurulur. Öğrenciyi sürükleyip saate bırakın; yüz yüze / online seçimi, günlük doluluk oranı, müsait günler. **PNG olarak indir.** |
 | 🎉 **Resmi tatiller ve özel günler** | Ulusal ve dini bayramlar (arifeler yarım gün) programda kırmızı görünür; yarıyıl tatili, sınav haftası gibi günleri tarih aralığıyla kendiniz ekleyin. |
+| 📚 **Ders kayıtları** | Programdaki derse tıklayıp “derste işlenen konu” yazın; ödev, PDF ve görsel ekleyin. Programda olmayan dersler elle girilir. “Sadece bize not” veli/öğrenciye görünmez. |
+| 👪 **Veli ve öğrenci portalı** | Ayrı alan adında (ör. `portal.ornek.com`) veli: çocuklarının programı, işlenen konular, PDF'ler, ödemeler ve bakiye; öğrenci: sadece programı ve işlenen konular. Hesaplar veli sayfasından tek tıkla, hazır giriş mesajıyla. |
+| 🔄 **Google Takvim (taslak)** | Dersler Google Takvime yazılır, Google'daki etkinlikler programda “Dolu” görünür. Google Cloud kimlik bilgileri girilene kadar kapalıdır. |
 | ⛔ **Dolu saatler** | Ders dışında meşgul olduğunuz saatleri (okul, iş…) açıklamayla işaretleyin; dolu saate ders eklenemez. |
 | 🖱️ **Hızlı düzenleme** | Programda sağ tıkla (telefonda uzun basarak) sil, 5 saniye içinde "Geri al". |
 | 📝 **Ortak notlar** | Kullanıcılar arasında not paylaşımı; sabitleme ve tamamlandı işareti. |
@@ -179,6 +184,7 @@ server {
 | `SECRET_KEY` | Oturum imzalama anahtarı (uzun ve rastgele olmalı) |
 | `COOKIE_SECURE` | HTTPS arkasında `1` |
 | `DATA_DIR` | Veritabanı, dekont ve yedek klasörü |
+| `PORTAL_HOST` | Portal alan adı (ör. `portal.ornek.com`). Bu alan adında sadece portal sayfaları açılır. |
 
 ---
 
@@ -255,6 +261,23 @@ Teşekkür ederim🙏
 
 ---
 
+## Veli / öğrenci portalı
+
+- Portal `/portal/` altındadır. `.env` içinde `PORTAL_HOST` verilirse o alan adında **yalnızca** portal açılır (yönetim sayfaları 404), kök adres portala yönlenir.
+- Hesaplar: Veliler → veli → **Portal erişimi** → “Veli hesabı oluştur” / “Öğrenci hesabı oluştur”. Kullanıcı adı addan üretilir, şifre rastgeledir ve **sadece bir kez** hazır mesajla gösterilir (kopyala / WhatsApp). Şifre sıfırlama, kapatma ve silme aynı yerden.
+- Portal hesapları personel hesaplarından ayrı tablodadır (`portal_users`) ve ayrı oturum anahtarı kullanır; portal oturumu yönetim sayfalarını açamaz.
+- Veli: çocuklarının programı, işlenen konular/ödevler, dosyalar, ödemeler ve bakiye. Öğrenci: sadece kendi programı ve işlenen konular. Komisyon, iç notlar ve “sadece bize not” hiçbir yerde gösterilmez.
+- Ayarlar → Veli / öğrenci portalı: giriş mesajında yazan adres.
+
+## Google Takvim (taslak)
+
+Kod hazırdır ama Google Cloud'da OAuth istemcisi oluşturulup **Ayarlar → Google Takvim**'e girilene ve “Google ile bağlan” yapılana kadar hiçbir şey göndermez.
+
+- Buradan Google'a: eklenen / taşınan / silinen dersler Google Takvim etkinliği olarak yazılır, güncellenir, silinir.
+- Google'dan buraya: Google Takvimdeki (bizim yazmadığımız, tüm gün olmayan) etkinlikler programda “Dolu · Google: …” olarak görünür.
+- Senkron `python manage.py gcal-sync` ile çalışır; 5 dakikada bir için sunucuda `systemctl enable --now odemetakip-gcal.timer`.
+- Kurulum adımları Ayarlar sayfasında yazılıdır.
+
 ## Telegram bildirimi
 
 1. Telegram'da **@BotFather** → `/newbot` ile bir bot oluşturun, verilen anahtarı (token) kopyalayın.
@@ -299,6 +322,10 @@ app/
   payments.py      Ödemeler, mesaj oluşturma, dekont, tamamlama
   commission.py    Komisyon sayfası, asistana yapılan ödemeler
   schedule.py      Haftalık program ve dolu saatler (JSON API)
+  lessons.py       Ders kayıtları: işlenen konu, ödev, PDF/görsel
+  portal.py        Veli / öğrenci portalı (ayrı giriş)
+  access.py        Portal hesaplarını yönetme (personel tarafı)
+  gcal.py          Google Takvim senkronu (taslak)
   notes.py         Ortak notlar
   reports.py       Aylık raporlar, CSV dışa aktarma
   audit.py         İşlem geçmişi kaydı
@@ -326,6 +353,7 @@ wsgi.py            gunicorn giriş noktası
 | `python manage.py set-password <ad>` | Şifre sıfırla |
 | `python manage.py backup` | Elle yedek al (veritabanı + dekontlar) |
 | `python manage.py notify [--force]` | Telegram günlük özetini şimdi gönder |
+| `python manage.py gcal-sync` | Google Takvim senkronu (bağlı değilse bir şey yapmaz) |
 | `python manage.py run [--port 5000]` | Geliştirme sunucusu |
 
 Sunucuda komutları `odemetakip` kullanıcısıyla çalıştırın:

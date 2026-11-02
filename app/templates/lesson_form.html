@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Ders kaydı' if lesson else 'Yeni ders kaydı' }}{% endblock %}
+{% block content %}
+{% set linked = lesson and lesson.slot_id %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{{ url_for('lessons.index', ogrenci=lesson.student_id if lesson else None) }}">← Ders kayıtları</a>
+    <h1>{% if lesson %}{{ lesson.student_name }} · {{ label(lesson) }}{% else %}Yeni ders kaydı{% endif %}</h1>
+    {% if linked %}<div class="muted small">Programdaki derse bağlı; tarih ve saat programdan gelir.
+      <a href="{{ url_for('schedule.index', hafta=lesson.lesson_date) }}">Programda göster →</a></div>{% endif %}
+  </div>
+</div>
+
+<div class="grid grid-2">
+<div class="card" style="margin:0">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf() }}
+    <div class="field">
+      <label for="student_id">Öğrenci *</label>
+      {% if lesson %}
+        <input type="text" value="{{ lesson.student_name }} ({{ lesson.parent_name }})" disabled>
+      {% else %}
+      <select id="student_id" name="student_id" required>
+        <option value="">Seçin…</option>
+        {% for s in students if s.active %}<option value="{{ s.id }}" {{ 'selected' if s.id == selected or (form.student_id|string) == (s.id|string) }}>{{ s.name }} · {{ s.parent_name }}</option>{% endfor %}
+      </select>
+      {% endif %}
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="lesson_date">Tarih *</label>
+        <input type="date" id="lesson_date" name="lesson_date" value="{{ form.lesson_date or today }}" {{ 'disabled' if linked }} required>
+      </div>
+      <div class="field">
+        <label for="start_time">Saat</label>
+        <input type="text" id="start_time" name="start_time" placeholder="ör. 14:00" inputmode="numeric" maxlength="5"
+          value="{{ hhmm(form.start_min) if form.start_min is number else (form.start_time or '') }}" {{ 'disabled' if linked }}>
+      </div>
+      <div class="field">
+        <label for="lesson_type">Tür</label>
+        <select id="lesson_type" name="lesson_type" {{ 'disabled' if linked }}>
+          <option value="inperson" {{ 'selected' if form.lesson_type != 'online' }}>Yüz yüze</option>
+          <option value="online" {{ 'selected' if form.lesson_type == 'online' }}>Online</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="topic">Derste işlenen konu</label>
+      <textarea id="topic" name="topic" maxlength="2000" rows="4" placeholder="ör. Türev: zincir kuralı, 12 soru çözüldü">{{ form.topic or '' }}</textarea>
+    </div>
+    <div class="field">
+      <label for="homework">Ödev</label>
+      <textarea id="homework" name="homework" maxlength="2000" rows="2" placeholder="ör. Kitap s. 45-48">{{ form.homework or '' }}</textarea>
+    </div>
+    <div class="field">
+      <label for="private_note">Sadece bize not 🔒</label>
+      <textarea id="private_note" name="private_note" maxlength="2000" rows="2" placeholder="Veli ve öğrenci görmez">{{ form.private_note or '' }}</textarea>
+    </div>
+    <div class="field">
+      <label for="files">PDF / görsel ekle</label>
+      <input type="file" id="files" name="files" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*">
+      <div class="hint">Birden fazla dosya seçebilirsiniz. Toplam en fazla 25 MB.</div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary">{{ 'Kaydet' if lesson else 'Ders kaydını ekle' }}</button>
+      <a class="btn" href="{{ url_for('lessons.index') }}">Vazgeç</a>
+    </div>
+  </form>
+</div>
+
+{% if lesson %}
+<div>
+  <div class="card">
+    <h2>Dosyalar</h2>
+    {% for f in files %}
+      <div class="portal-row">
+        <a href="{{ url_for('lessons.file', fid=f.id) }}" target="_blank" rel="noopener">{{ icon('note') }} {{ f.name }}</a>
+        <span class="small muted">{{ (f.size / 1024) | round | int }} KB</span>
+        <form method="post" action="{{ url_for('lessons.delete_file', fid=f.id) }}" class="inline" data-confirm="{{ f.name }} silinsin mi?">
+          {{ csrf() }}<button class="link-btn danger small">Sil</button>
+        </form>
+      </div>
+    {% else %}
+      <p class="muted small">Dosya yok.</p>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <h3>Ders kaydını sil</h3>
+    <p class="small muted">Konu, ödev ve dosyalar silinir{{ '; programdaki ders yerinde kalır' if linked }}.</p>
+    <form method="post" action="{{ url_for('lessons.delete', lid=lesson.id) }}" data-confirm="Bu ders kaydı ve dosyaları silinsin mi?">
+      {{ csrf() }}<button class="btn danger">Sil</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

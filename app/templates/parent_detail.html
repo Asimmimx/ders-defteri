@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import status_badge, lessons_text %}
+{% from "_macros.html" import status_badge, lessons_text, csrf %}
 {% block title %}{{ parent.name }}{% endblock %}
 {% block content %}
 <div class="page-head">
@@ -43,6 +43,7 @@
         </div>
         <div class="form-actions" style="margin:0">
           <a class="btn sm" href="{{ url_for('payments.new', ogrenci=s.id) }}" title="Bu öğrenci için ödeme ekle">{{ icon('plus') }}</a>
+          <a class="btn sm" href="{{ url_for('lessons.index', ogrenci=s.id) }}" title="Ders kayıtları">{{ icon('book') }}</a>
           <a class="btn sm" href="{{ url_for('main.student_edit', sid=s.id) }}" title="Düzenle">{{ icon('edit') }}</a>
         </div>
       </div>
@@ -59,6 +60,47 @@
       <dt>Notlar</dt><dd style="white-space:pre-wrap">{{ parent.notes or '—' }}</dd>
     </dl>
   </div>
+</div>
+
+{% macro portal_actions(acc) %}
+  <span class="small">{{ icon('key') }} <strong>{{ acc.username }}</strong>
+    {% if not acc.active %}<span class="badge cancelled">Kapalı</span>{% endif %}
+    <span class="muted">· son giriş: {{ acc.last_login | tarihsaat if acc.last_login else 'hiç' }}</span></span>
+  <span class="form-actions" style="margin:0">
+    <form method="post" action="{{ url_for('access.reset', uid=acc.id) }}" class="inline" data-confirm="Yeni şifre oluşturulsun mu? Eski şifre çalışmaz.">{{ csrf() }}<button class="btn sm">Şifre sıfırla</button></form>
+    <form method="post" action="{{ url_for('access.toggle', uid=acc.id) }}" class="inline">{{ csrf() }}<button class="btn sm">{{ 'Kapat' if acc.active else 'Aç' }}</button></form>
+    <form method="post" action="{{ url_for('access.delete', uid=acc.id) }}" class="inline" data-confirm="Portal hesabı silinsin mi?">{{ csrf() }}<button class="btn sm danger">Sil</button></form>
+  </span>
+{% endmacro %}
+<div class="card" id="portal">
+  <div class="card-head"><h2>Portal erişimi</h2><a class="small" href="{{ portal_url }}" target="_blank" rel="noopener">{{ portal_url }}</a></div>
+  <p class="small muted" style="margin-top:0">Veli: çocuklarının programı, işlenen konular, PDF'ler ve ödemeler. Öğrenci: sadece programı ve işlenen konular (ödeme görmez).</p>
+  {% if cred %}
+    <div class="flash success" style="margin-bottom:6px">Şifre sadece şimdi gösteriliyor; mesajı kopyalayıp gönderin.</div>
+    <textarea id="cred-msg" class="cred-box" rows="7" readonly style="width:100%">{{ cred.message }}</textarea>
+    <div class="form-actions" style="margin-bottom:12px">
+      <button type="button" class="btn primary" data-copy-from="#cred-msg">{{ icon('copy') }} Mesajı kopyala</button>
+      {% if parent.phone %}<a class="btn" href="https://wa.me/{{ parent.phone | wa_phone }}?text={{ cred.message | urlencode }}" target="_blank" rel="noopener">WhatsApp'ta aç</a>{% endif %}
+    </div>
+  {% endif %}
+  <div class="portal-row">
+    <div><strong>Veli</strong> · {{ parent.name }}</div>
+    {% if accounts.parent %}{{ portal_actions(accounts.parent) }}
+    {% else %}
+      <form method="post" action="{{ url_for('access.create', pid=parent.id) }}" class="inline">{{ csrf() }}<button class="btn sm primary">{{ icon('plus') }} Veli hesabı oluştur</button></form>
+    {% endif %}
+  </div>
+  {% for s in students %}
+  <div class="portal-row">
+    <div><span class="dot" style="background:{{ s.color }}"></span><strong>Öğrenci</strong> · {{ s.name }}</div>
+    {% set acc = accounts.students.get(s.id) %}
+    {% if acc %}{{ portal_actions(acc) }}
+    {% else %}
+      <form method="post" action="{{ url_for('access.create', pid=parent.id) }}" class="inline">{{ csrf() }}
+        <input type="hidden" name="student_id" value="{{ s.id }}"><button class="btn sm">{{ icon('plus') }} Öğrenci hesabı oluştur</button></form>
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
 
 <div class="card">

@@ -206,7 +206,66 @@
   </form>
 </div>
 
-<div class="card" id="yedekler">
+<div class="grid grid-2">
+<div class="card" id="portal" style="margin:0">
+  <h2>Veli / öğrenci portalı</h2>
+  <p class="small muted">Veliler ve öğrenciler bu adresten girer. Hesaplar velinin sayfasındaki <strong>Portal erişimi</strong> bölümünden oluşturulur. Şu an {{ portal_count }} aktif hesap var.</p>
+  <form method="post" action="{{ url_for('settings.save_portal') }}">
+    {{ csrf() }}
+    <div class="field">
+      <label for="portal_url">Portal adresi</label>
+      <input type="text" id="portal_url" name="portal_url" value="{{ s.portal_url }}" inputmode="url">
+      <div class="hint">Gönderilen giriş mesajında bu adres yazar.</div>
+    </div>
+    <button class="btn primary">Kaydet</button>
+  </form>
+</div>
+
+<div class="card" id="google" style="margin:0">
+  <h2>Google Takvim <span class="draft-tag">Taslak</span></h2>
+  <p class="small muted">Programa eklenen dersler Enes Hoca'nın Google Takvimine yazılır; Google Takvimdeki diğer etkinlikler programda “Dolu” görünür.
+    Durum: <strong>{{ gcal_status }}</strong>{% if s.gcal_last_error %} · <span style="color:var(--danger)">{{ s.gcal_last_error }}</span>{% endif %}</p>
+  <details class="box" style="margin-bottom:12px">
+    <summary class="small">Kurulum adımları (bir kez)</summary>
+    <ol class="small" style="margin:8px 0 0;padding-left:20px">
+      <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>'da bir proje açın, <strong>Google Calendar API</strong>'yi etkinleştirin.</li>
+      <li><em>OAuth consent screen</em>: “External”, uygulama adı “Ödeme Takip”, test kullanıcısı olarak Enes Hoca'nın Gmail adresini ekleyin.</li>
+      <li><em>Credentials → Create credentials → OAuth client ID → Web application</em>. Yetkili yönlendirme adresi:<br><code>{{ gcal_redirect }}</code></li>
+      <li>Verilen <strong>Client ID</strong> ve <strong>Client secret</strong>'ı aşağıya kaydedin, sonra “Google ile bağlan”a basıp Enes Hoca'nın hesabıyla izin verin.</li>
+      <li>Otomatik senkron için sunucuda: <code>systemctl enable --now odemetakip-gcal.timer</code> (5 dakikada bir).</li>
+    </ol>
+  </details>
+  <form method="post" action="{{ url_for('gcal.save') }}">
+    {{ csrf() }}
+    <div class="field">
+      <label for="gcal_client_id">Client ID</label>
+      <input type="text" id="gcal_client_id" name="gcal_client_id" value="{{ s.gcal_client_id }}" autocomplete="off" placeholder="…apps.googleusercontent.com">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="gcal_client_secret">Client secret</label>
+        <input type="password" id="gcal_client_secret" name="gcal_client_secret" autocomplete="off"
+               placeholder="{{ 'Kayıtlı — değiştirmek için yeni değer girin' if s.gcal_client_secret else 'GOCSPX-…' }}">
+      </div>
+      <div class="field">
+        <label for="gcal_calendar_id">Takvim</label>
+        <input type="text" id="gcal_calendar_id" name="gcal_calendar_id" value="{{ s.gcal_calendar_id }}">
+        <div class="hint">“primary” = ana takvim</div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn primary">Kaydet</button>
+      {% if gcal_configured %}<a class="btn" href="{{ url_for('gcal.connect') }}">{{ 'Yeniden bağlan' if gcal_connected else 'Google ile bağlan' }}</a>{% endif %}
+      {% if gcal_connected %}
+        <button class="btn" formaction="{{ url_for('gcal.sync_now') }}">Şimdi senkronize et</button>
+        <button class="btn danger" formaction="{{ url_for('gcal.disconnect') }}" data-confirm-btn="Google Takvim bağlantısı kesilsin mi?">Bağlantıyı kes</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+</div>
+
+<div class="card" id="yedekler" style="margin-top:18px">
   <div class="card-head">
     <h2>Veritabanı yedekleri</h2>
     <form method="post" action="{{ url_for('settings.make_backup') }}">{{ csrf() }}<button class="btn">{{ icon('download') }} Şimdi yedek al</button></form>

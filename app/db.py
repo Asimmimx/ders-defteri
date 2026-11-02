@@ -14,7 +14,25 @@ DEFAULT_SETTINGS = {
     "telegram_enabled": "0",
     "telegram_token": "",
     "telegram_chat_id": "",
+    "portal_url": "https://portal.eneskayar.com",
+    # Google Takvim (taslak): istemci bilgileri Google Cloud Console'dan
+    "gcal_client_id": "",
+    "gcal_client_secret": "",
+    "gcal_refresh_token": "",
+    "gcal_calendar_id": "primary",
+    "gcal_last_sync": "",
+    "gcal_last_error": "",
 }
+
+PORTAL_TEMPLATE = (
+    "Merhaba {veli}\n"
+    "Ders programını, derste işlenen konuları ve ödemeleri buradan takip edebilirsiniz:\n"
+    "{portal_adresi}\n"
+    "Kullanıcı adı: {kullanici_adi}\n"
+    "Şifre: {sifre}\n"
+    "\n"
+    "Teşekkür ederim🙏"
+)
 
 PAYMENT_TEMPLATE = (
     "Merhaba {veli}\n"
@@ -94,6 +112,15 @@ def _migrate(conn):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN week_start TEXT")
         conn.execute(f"UPDATE {table} SET week_start = ? WHERE week_start IS NULL", (monday,))
         conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_week ON {table}(week_start)")
+    # Google Takvim senkronu (taslak)
+    for table, cols_sql in (
+        ("schedule_slots", ("gcal_event_id TEXT", "gcal_synced INTEGER NOT NULL DEFAULT 0")),
+        ("busy_blocks", ("source TEXT NOT NULL DEFAULT ''", "gcal_event_id TEXT")),
+    ):
+        tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for col in cols_sql:
+            if col.split()[0] not in tcols:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col}")
     conn.execute(
         "UPDATE message_templates SET name = ?, body = ? WHERE body = ?",
         ("Ödeme bilgisi", PAYMENT_TEMPLATE, OLD_DEFAULT_BODY),

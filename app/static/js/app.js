@@ -63,10 +63,30 @@
 
   // Tıklanabilir tablo satırları
   document.addEventListener("click", (e) => {
-    const row = e.target.closest("tr[data-href]");
+    const row = e.target.closest("[data-href]");
     if (row && !e.target.closest("a, button, form, input")) {
       location.href = row.dataset.href;
     }
+  });
+
+  // Metin kopyalama: <button data-copy-from="#kutu">
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-copy-from]");
+    if (!btn) return;
+    const src = document.querySelector(btn.dataset.copyFrom);
+    if (!src) return;
+    const text = src.value !== undefined ? src.value : src.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    App.toast("Kopyalandı");
   });
 
   // Onay isteyen formlar / butonlar

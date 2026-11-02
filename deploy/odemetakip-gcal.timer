@@ -1,0 +1,9 @@
+[Unit]
+Description=Odeme Takip Google Takvim senkronu - 5 dakikada bir (taslak: Google baglaninca etkinlestirin)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

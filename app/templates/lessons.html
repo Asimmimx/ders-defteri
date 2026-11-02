@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Ders kayıtları{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Ders kayıtları</h1>
+    <div class="muted small">Derste işlenen konu, ödev ve PDF'ler. Veli ve öğrenci portalda görür (“Sadece bize not” hariç).</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn primary" href="{{ url_for('lessons.new', ogrenci=sid or None) }}">{{ icon('plus') }} Ders kaydı ekle</a>
+  </div>
+</div>
+
+<form method="get" class="toolbar">
+  <select name="ogrenci" onchange="this.form.submit()" aria-label="Öğrenci" style="max-width:260px">
+    <option value="">Tüm öğrenciler</option>
+    {% for s in students %}<option value="{{ s.id }}" {{ 'selected' if s.id == sid }}>{{ s.name }}{{ ' (pasif)' if not s.active }}</option>{% endfor %}
+  </select>
+  <input type="search" name="q" value="{{ q }}" placeholder="Konu veya ödevde ara">
+  <button class="btn">Ara</button>
+</form>
+
+{% if missing %}
+<div class="card">
+  <h2>Konusu girilmemiş dersler <span class="muted small">(son 3 hafta, programdan)</span></h2>
+  <div>
+    {% for m in missing %}
+      <a class="chip" href="{{ url_for('lessons.from_slot', slot_id=m.id) }}"><span class="dot" style="background:{{ m.color }}"></span>{{ m.student_name }} · {{ m.label }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  {% for l in rows %}
+    <div class="lesson-item clickable" data-href="{{ url_for('lessons.edit', lid=l.id) }}" style="cursor:pointer">
+      <span class="dot" style="background:{{ l.color }};margin-top:6px"></span>
+      <div class="when">
+        <div><strong>{{ l.student_name }}</strong> · <span class="muted">{{ label(l) }} · {{ 'Online' if l.lesson_type == 'online' else 'Yüz yüze' }}</span>
+          {% if l.file_count %}<span class="badge info">📄 {{ l.file_count }} dosya</span>{% endif %}
+          {% if not l.slot_id %}<span class="badge cancelled">Elle girildi</span>{% endif %}</div>
+        {% if l.topic %}<div class="topic">{{ l.topic }}</div>{% endif %}
+        {% if l.homework %}<div class="hw muted"><strong>Ödev:</strong> {{ l.homework }}</div>{% endif %}
+        {% if l.private_note %}<div class="small muted">🔒 {{ l.private_note }}</div>{% endif %}
+      </div>
+    </div>
+  {% else %}
+    <p class="empty">Henüz ders kaydı yok. Programdaki bir derse tıklayıp “Derste işlenen konu” yazabilir ya da yukarıdan elle ekleyebilirsiniz.</p>
+  {% endfor %}
+</div>
+{% endblock %}

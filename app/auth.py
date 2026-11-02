@@ -39,7 +39,8 @@ def load_user():
         ).fetchone()
         if g.user is None:
             session.clear()
-    if g.user is None and request.endpoint not in PUBLIC_ENDPOINTS:
+    # Portal sayfaları kendi girişini yapar (portal.py)
+    if g.user is None and request.endpoint not in PUBLIC_ENDPOINTS and not (request.endpoint or "").startswith("portal."):
         if request.path.startswith("/api/"):
             return {"error": "Oturum süresi doldu, tekrar giriş yapın."}, 401
         return redirect(url_for("auth.login", next=(request.full_path.rstrip("?") if request.method == "GET" and request.path != "/" else None)))

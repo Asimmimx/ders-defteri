@@ -4,6 +4,7 @@
     python manage.py set-password <kullanici_adi>
     python manage.py backup            # haftalık yedek (systemd timer bunu çalıştırır)
     python manage.py notify            # günlük Telegram özeti (systemd timer bunu çalıştırır)
+    python manage.py gcal-sync         # Google Takvim senkronu (taslak; bağlı değilse hiçbir şey yapmaz)
     python manage.py run               # geliştirme sunucusu (http://127.0.0.1:5000)
 """
 import argparse
@@ -17,6 +18,7 @@ from app.audit import log
 from app.backup import create_backup
 from app.db import connect, DEFAULT_SETTINGS
 from app.notify import daily_summary, send_message
+from app import gcal
 
 
 def _ask_password():
@@ -43,6 +45,7 @@ def main():
     sub.add_parser("backup")
     nt = sub.add_parser("notify")
     nt.add_argument("--force", action="store_true", help="Bildirim kapalı olsa da gönder")
+    sub.add_parser("gcal-sync")
     rn = sub.add_parser("run")
     rn.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
@@ -96,6 +99,13 @@ def main():
                 if not ok:
                     conn.close()
                     sys.exit(1)
+    elif args.cmd == "gcal-sync":
+        try:
+            summary = gcal.sync(conn)
+        except gcal.GcalError as e:
+            conn.close()
+            sys.exit(f"Hata: {e}")
+        print(summary or "Google Takvim bağlı değil.")
     conn.close()
 
 

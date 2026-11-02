@@ -1,0 +1,36 @@
+{% extends "portal/base.html" %}
+{% from "_macros.html" import status_badge, lessons_text %}
+{% block title %}Ödemeler{% endblock %}
+{% block content %}
+<h1>Ödemeler</h1>
+<div class="stats" style="margin-top:12px">
+  <div class="stat"><div class="label">Bekleyen</div><div class="value" style="color:var(--warning)">{{ pending | money }}</div></div>
+  <div class="stat"><div class="label">Toplam ödenen</div><div class="value" style="color:var(--success)">{{ paid | money }}</div></div>
+  <div class="stat"><div class="label">Bakiye</div>
+    {% if balance > 0 %}<div class="value" style="color:var(--danger)">{{ balance | money }}</div><div class="sub">Önceki ödemelerden kalan borç</div>
+    {% elif balance < 0 %}<div class="value" style="color:var(--success)">{{ (-balance) | money }}</div><div class="sub">Fazla ödemeniz; sonraki ödemeden düşülür</div>
+    {% else %}<div class="value">0 ₺</div><div class="sub">Açık bakiye yok</div>{% endif %}</div>
+</div>
+<div class="card">
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Öğrenci</th><th>Ders saati</th><th>Son ödeme / Ödendi</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
+    <tbody>
+    {% for p in rows %}
+      <tr>
+        <td class="nowrap"><span class="dot" style="background:{{ p.color }}"></span>{{ p.student_name }}
+          {% if p.description %}<div class="small muted">{{ p.description }}</div>{% endif %}</td>
+        <td class="small">{{ lessons_text(p) }}</td>
+        <td class="small nowrap">{{ (p.paid_at if p.status == 'paid' else p.due_date) | tarih }}</td>
+        <td>{{ status_badge(p, today) }}</td>
+        <td class="right nowrap"><strong>{{ (p.paid_amount if p.status == 'paid' else p.amount) | money }}</strong>
+          {% if p.status == 'paid' and p.paid_amount is not none and p.paid_amount < p.amount - 0.005 %}<div class="small muted">/ {{ p.amount | money }}</div>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">Ödeme kaydı yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

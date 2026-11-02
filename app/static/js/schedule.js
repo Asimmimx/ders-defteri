@@ -66,7 +66,7 @@
         for (const s of here) {
           const type = s.lesson_type === "online" ? "Online" : "Yüz yüze";
           html += `<div class="lesson ${s.lesson_type === "online" ? "online" : ""}" style="background:${esc(s.color)}" data-id="${s.id}">${esc(s.student_name)}
-            <span class="ltype">${type}${s.note ? " · " + esc(s.note) : ""}</span></div>`;
+            <span class="ltype">${type}${s.note ? " · " + esc(s.note) : ""}</span>${s.topic || s.file_count ? `<span class="ltopic" title="${esc(s.topic || "")}">${s.file_count ? "📄 " : ""}${esc(s.topic || "Dosya ekli")}</span>` : ""}</div>`;
         }
         html += "</div>";
       }
@@ -243,13 +243,17 @@
     document.getElementById("dlg-title").textContent = `${s.student_name} · ${dayLabel(s.day)} ${hhmm(s.start_min)}`;
     const typeSel = document.getElementById("dlg-type");
     const note = document.getElementById("dlg-note");
+    const topic = document.getElementById("dlg-topic");
     typeSel.value = s.lesson_type;
     note.value = s.note || "";
+    topic.value = s.topic || "";
+    document.getElementById("dlg-lesson-link").href = `/dersler/program/${id}`;
+    document.getElementById("dlg-files").textContent = s.file_count ? `· ${s.file_count} dosya ekli` : "";
     dialog.returnValue = "";
     dialog.onclose = async () => {
       if (dialog.returnValue === "save") {
         try {
-          await App.api(`/api/program/${id}`, "PATCH", { lesson_type: typeSel.value, note: note.value });
+          await App.api(`/api/program/${id}`, "PATCH", { lesson_type: typeSel.value, note: note.value, topic: topic.value });
           load();
         } catch (e) { App.toast(e.message); }
       } else if (dialog.returnValue === "delete") {

@@ -3,7 +3,7 @@ import secrets
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, abort, g, request, session
+from flask import Flask, abort, g, redirect, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import db, utils
@@ -35,7 +35,8 @@ def create_app():
         DATABASE=str(data_dir / "odeme.db"),
         UPLOAD_DIR=str(data_dir / "uploads"),
         BACKUP_DIR=str(data_dir / "backups"),
-        MAX_CONTENT_LENGTH=15 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=25 * 1024 * 1024,
+        PORTAL_HOST=os.environ.get("PORTAL_HOST", "").strip().lower(),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "0") == "1",
@@ -65,6 +66,21 @@ def create_app():
             if not token or token != session.get("_csrf"):
                 abort(400, "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.")
 
+    # Portal alan adında (portal.eneskayar.com) sadece portal sayfaları açılır
+    portal_open = {"static", "public.robots"}
+
+    @app.before_request
+    def portal_host_guard():
+        host = app.config["PORTAL_HOST"]
+        if not host or (request.host or "").split(":")[0].lower() != host:
+            return None
+        ep = request.endpoint or ""
+        if ep.startswith("portal.") or ep in portal_open:
+            return None
+        if request.path in ("/", "/giris"):
+            return redirect(url_for("portal.home"))
+        abort(404)
+
     @app.after_request
     def security_headers(resp):
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -86,6 +102,7 @@ def create_app():
         qty=utils.qty,
         tarih=utils.fmt_date,
         tarihsaat=utils.fmt_datetime,
+        wa_phone=lambda p: utils.normalize_phone(p).lstrip("+"),
     )
 
     from .auth import bp as auth_bp
@@ -97,14 +114,19 @@ def create_app():
     from .notes import bp as notes_bp
     from .reports import bp as reports_bp
     from .public import bp as public_bp
+    from .lessons import bp as lessons_bp
+    from .portal import bp as portal_bp
+    from .access import bp as access_bp
+    from .gcal import bp as gcal_bp
 
-    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, notes_bp, reports_bp, settings_bp, public_bp):
+    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, notes_bp, reports_bp, settings_bp,
+               public_bp, lessons_bp, portal_bp, access_bp, gcal_bp):
         app.register_blueprint(bp)
 
     from flask import render_template
     from werkzeug.exceptions import HTTPException
 
-    messages = {404: "Sayfa bulunamadı.", 413: "Dosya çok büyük (en fazla 15 MB).", 500: "Beklenmeyen bir hata oluştu."}
+    messages = {404: "Sayfa bulunamadı.", 413: "Dosya çok büyük (en fazla 25 MB).", 500: "Beklenmeyen bir hata oluştu."}
 
     @app.errorhandler(HTTPException)
     def http_error(e):

@@ -1,0 +1,33 @@
+{% extends "portal/base.html" %}
+{% block title %}Ana sayfa{% endblock %}
+{% block content %}
+<h1>Merhaba {{ g.portal.display_name }}</h1>
+<p class="muted" style="margin-top:0">{% if g.portal.role == 'parent' %}{{ students | map(attribute='name') | join(', ') }} için ders programı, işlenen konular ve ödemeler.{% else %}Ders programın ve derslerde işlenen konular.{% endif %}</p>
+
+{% if pay %}
+<div class="stats">
+  <div class="stat"><div class="label">Bekleyen ödeme</div><div class="value" style="color:var(--warning)">{{ pay.pending.s | money }}</div><div class="sub">{{ pay.pending.c }} kayıt</div></div>
+  {% if pay.balance %}
+  <div class="stat"><div class="label">{{ 'Önceki borç' if pay.balance > 0 else 'Alacağınız' }}</div>
+    <div class="value" style="color:var({{ '--danger' if pay.balance > 0 else '--success' }})">{{ (pay.balance if pay.balance > 0 else -pay.balance) | money }}</div>
+    <div class="sub">{{ 'Sonraki ödemeye eklenir' if pay.balance > 0 else 'Sonraki ödemeden düşülür' }}</div></div>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <div class="card" style="margin:0">
+    <div class="card-head"><h2>Bu hafta</h2><a class="small" href="{{ url_for('portal.program') }}">Tüm program →</a></div>
+    {% include "portal/_week.html" %}
+    {% if not days %}<p class="muted small">Bu haftanın kalan günü yok.</p>{% endif %}
+    <h3 style="margin-top:14px">Gelecek hafta</h3>
+    {% with days = next_days | selectattr('slots') | list %}
+      {% if days %}{% include "portal/_week.html" %}{% else %}<p class="muted small">Henüz ders planlanmadı.</p>{% endif %}
+    {% endwith %}
+  </div>
+  <div class="card" style="margin:0">
+    <div class="card-head"><h2>Son işlenen konular</h2><a class="small" href="{{ url_for('portal.lessons') }}">Tümü →</a></div>
+    {% with show_student = students | length > 1 %}{% include "portal/_lesson_list.html" %}{% endwith %}
+  </div>
+</div>
+{% endblock %}

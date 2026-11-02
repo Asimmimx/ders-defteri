@@ -1,0 +1,16 @@
+{% for l in rows %}
+  <div class="lesson-item">
+    <span class="dot" style="background:{{ l.color }};margin-top:6px"></span>
+    <div class="when">
+      <div><strong>{{ label(l) }}</strong>{% if show_student %} · {{ l.student_name }}{% endif %}
+        <span class="muted small">· {{ 'Online' if l.lesson_type == 'online' else 'Yüz yüze' }}</span></div>
+      {% if l.topic %}<div class="topic">{{ l.topic }}</div>{% endif %}
+      {% if l.homework %}<div class="hw"><strong>Ödev:</strong> {{ l.homework }}</div>{% endif %}
+      {% for f in files.get(l.id, []) %}
+        <a class="file-chip" href="{{ url_for('portal.file', fid=f.id) }}" target="_blank" rel="noopener">{{ icon('note') }} {{ f.name }}</a>
+      {% endfor %}
+    </div>
+  </div>
+{% else %}
+  <p class="empty">Henüz işlenen konu girilmedi.</p>
+{% endfor %}
