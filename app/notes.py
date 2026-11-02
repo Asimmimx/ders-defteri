@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
+from .audit import log
 from .db import get_db
 
 bp = Blueprint("notes", __name__)
@@ -30,8 +31,9 @@ def create():
         flash("Not boş olamaz.", "error")
     else:
         db = get_db()
-        db.execute("INSERT INTO notes(user_id, body, pinned) VALUES (?, ?, ?)",
-                   (g.user["id"], body[:5000], 1 if request.form.get("pinned") else 0))
+        cur = db.execute("INSERT INTO notes(user_id, body, pinned) VALUES (?, ?, ?)",
+                         (g.user["id"], body[:5000], 1 if request.form.get("pinned") else 0))
+        log("Not eklendi", body[:120], "note", cur.lastrowid)
         db.commit()
         flash("Not eklendi.", "success")
     return _back()
@@ -44,6 +46,7 @@ def edit(nid):
         db = get_db()
         db.execute("UPDATE notes SET body = ?, updated_at = datetime('now', 'localtime') WHERE id = ?",
                    (body[:5000], nid))
+        log("Not düzenlendi", body[:120], "note", nid)
         db.commit()
         flash("Not güncellendi.", "success")
     return _back()
@@ -52,6 +55,11 @@ def edit(nid):
 @bp.route("/notlar/<int:nid>/<action>", methods=["POST"])
 def toggle(nid, action):
     db = get_db()
+    row = db.execute("SELECT body FROM notes WHERE id = ?", (nid,)).fetchone()
+    short = (row["body"][:80] if row else f"#{nid}")
+    labels = {"sabitle": "Not sabitleme değişti", "tamamla": "Not durumu değişti", "sil": "Not silindi"}
+    if action in labels:
+        log(labels[action], short, "note", nid)
     if action == "sabitle":
         db.execute("UPDATE notes SET pinned = 1 - pinned WHERE id = ?", (nid,))
     elif action == "tamamla":

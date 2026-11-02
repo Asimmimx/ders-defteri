@@ -3,6 +3,7 @@
     python manage.py create-user <kullanici_adi> [--name "Ad Soyad"]
     python manage.py set-password <kullanici_adi>
     python manage.py backup            # haftalık yedek (systemd timer bunu çalıştırır)
+    python manage.py notify            # günlük Telegram özeti (systemd timer bunu çalıştırır)
     python manage.py run               # geliştirme sunucusu (http://127.0.0.1:5000)
 """
 import argparse
@@ -12,8 +13,10 @@ import sys
 from werkzeug.security import generate_password_hash
 
 from app import create_app
+from app.audit import log
 from app.backup import create_backup
 from app.db import connect, DEFAULT_SETTINGS
+from app.notify import daily_summary, send_message
 
 
 def _ask_password():
@@ -38,6 +41,8 @@ def main():
     sp = sub.add_parser("set-password")
     sp.add_argument("username")
     sub.add_parser("backup")
+    nt = sub.add_parser("notify")
+    nt.add_argument("--force", action="store_true", help="Bildirim kapalı olsa da gönder")
     rn = sub.add_parser("run")
     rn.add_argument("--port", type=int, default=5000)
     args = parser.parse_args()
@@ -67,10 +72,30 @@ def main():
     elif args.cmd == "backup":
         row = conn.execute("SELECT value FROM settings WHERE key = 'backup_limit_mb'").fetchone()
         limit = float(row[0]) if row else float(DEFAULT_SETTINGS["backup_limit_mb"])
-        target, removed = create_backup(db_path, app.config["BACKUP_DIR"], limit)
+        target, removed = create_backup(db_path, app.config["BACKUP_DIR"], limit,
+                                        upload_dir=app.config["UPLOAD_DIR"])
         print(f"Yedek: {target}")
         for name in removed:
             print(f"Silindi (sınır {limit:g} MB): {name}")
+        log("Haftalık yedek alındı", target.name, "backup", user=None, db=conn)
+        conn.commit()
+    elif args.cmd == "notify":
+        s = dict(DEFAULT_SETTINGS)
+        s.update({r[0]: r[1] for r in conn.execute("SELECT key, value FROM settings")})
+        if not (args.force or s["telegram_enabled"] == "1"):
+            print("Telegram bildirimi kapalı.")
+        elif not (s["telegram_token"] and s["telegram_chat_id"]):
+            print("Telegram bot anahtarı veya Chat ID eksik.")
+        else:
+            text = daily_summary(conn)
+            if text is None:
+                print("Bildirilecek ödeme yok.")
+            else:
+                ok, err = send_message(s["telegram_token"], s["telegram_chat_id"], text)
+                print("Gönderildi." if ok else f"Hata: {err}")
+                if not ok:
+                    conn.close()
+                    sys.exit(1)
     conn.close()
 
 

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}İşlem geçmişi{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{{ url_for('settings.index') }}">← Ayarlar</a>
+    <h1>İşlem geçmişi</h1>
+    <div class="muted small">Kim, ne zaman, ne yaptı. Son {{ '{:,}'.format(20000).replace(',', '.') }} kayıt saklanır.</div>
+  </div>
+</div>
+<form class="toolbar" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="İşlem veya ayrıntı ara… (ör. Nurgül, silindi)">
+  <select name="kullanici" onchange="this.form.submit()" style="max-width:200px" aria-label="Kullanıcı">
+    <option value="">Tüm kullanıcılar</option>
+    {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id == uid }}>{{ u.full_name or u.username }}</option>{% endfor %}
+  </select>
+  <button class="btn sm">Ara</button>
+</form>
+<div class="card">
+  <div class="card-head"><span class="muted">{{ total }} kayıt</span></div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Zaman</th><th>Kullanıcı</th><th>İşlem</th><th>Ayrıntı</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr {% if r.entity == 'payment' and r.entity_id %}class="clickable" data-href="{{ url_for('payments.detail', pay_id=r.entity_id) }}"{% endif %}>
+        <td class="small nowrap">{{ r.created_at | tarihsaat }}</td>
+        <td class="small nowrap">{{ r.username or 'Sistem' }}</td>
+        <td class="nowrap"><span class="badge {{ 'overdue' if 'sil' in r.action|lower or 'Hatalı' in r.action else 'info' }}">{{ r.action }}</span></td>
+        <td class="small">{{ r.detail }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Kayıt yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if pages > 1 %}
+  <div class="form-actions" style="justify-content:center;margin-top:12px">
+    {% if page > 1 %}<a class="btn sm" href="?q={{ q | urlencode }}&kullanici={{ uid or '' }}&sayfa={{ page - 1 }}">← Yeni</a>{% endif %}
+    <span class="muted small" style="align-self:center">{{ page }} / {{ pages }}</span>
+    {% if page < pages %}<a class="btn sm" href="?q={{ q | urlencode }}&kullanici={{ uid or '' }}&sayfa={{ page + 1 }}">Eski →</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

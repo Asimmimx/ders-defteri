@@ -25,7 +25,7 @@
         <dt>Veli</dt><dd><a href="{{ url_for('main.parent_detail', pid=p.parent_id) }}">{{ p.parent_name }}</a></dd>
         <dt>Telefon</dt><dd>{% if p.parent_phone %}<a href="tel:{{ p.parent_phone }}">{{ p.parent_phone }}</a>{% else %}—{% endif %}</dd>
         <dt>Ders saati</dt><dd>{{ lessons_text(p) }}</dd>
-        <dt>Tahakkuk</dt><dd>{{ p.amount | money }}</dd>
+        <dt>Tahakkuk</dt><dd>{{ p.amount | money }}{% if p.carry_in %} <span class="small muted">(önceki bakiye {{ p.carry_in | money }} dahil)</span>{% endif %}</dd>
         <dt>Son ödeme</dt><dd>{{ p.due_date | tarih }}</dd>
         <dt>Oluşturulma</dt><dd>{{ p.created_at | tarihsaat }}</dd>
         {% if p.reminder_sent_at %}<dt>Hatırlatma</dt><dd>{{ p.reminder_sent_at | tarihsaat }}</dd>{% endif %}
@@ -35,6 +35,9 @@
           <dt>Komisyonum</dt><dd style="color:var(--success)">{{ p.commission_amount | money }}
             <span class="small muted">({{ 'Saat başı ' ~ (p.commission_value | money) if p.commission_type == 'fixed' else '%' ~ (p.commission_value | num) }})</span></dd>
         {% endif %}
+        {% if p.status == 'paid' and p.paid_amount < p.amount - 0.005 %}<dt>Eksik</dt><dd style="color:var(--warning)">{{ (p.amount - p.paid_amount) | money }}</dd>{% endif %}
+        {% if p.status == 'paid' and p.paid_amount > p.amount + 0.005 %}<dt>Fazla</dt><dd style="color:var(--success)">{{ (p.paid_amount - p.amount) | money }}</dd>{% endif %}
+        <dt>Veli bakiyesi</dt><dd>{% if balance > 0 %}<span style="color:var(--danger)">{{ balance | money }} borç</span>{% elif balance < 0 %}<span style="color:var(--success)">{{ (-balance) | money }} alacak</span>{% else %}<span class="muted">Yok</span>{% endif %}</dd>
         {% if p.notes %}<dt>Not</dt><dd style="white-space:pre-wrap">{{ p.notes }}</dd>{% endif %}
       </dl>
     </div>
@@ -95,7 +98,7 @@
     <div class="card">
       <h2>{{ icon('check') }} Ödeme alındı</h2>
       <form method="post" action="{{ url_for('payments.complete', pay_id=p.id) }}" enctype="multipart/form-data"
-            data-complete data-ctype="{{ ctype }}" data-cvalue="{{ cvalue }}" data-lessons="{{ lessons }}">
+            data-complete data-ctype="{{ ctype }}" data-cvalue="{{ cvalue }}" data-lessons="{{ lessons }}" data-amount="{{ p.amount }}">
         {{ csrf() }}
         <div class="row">
           <div class="field">
@@ -120,12 +123,28 @@
             <div class="hint">{{ clabel }} üzerinden otomatik</div>
           </div>
         </div>
+        <div class="field partial-box" data-partial hidden>
+          <div class="small" style="margin-bottom:6px"><strong data-partial-text></strong></div>
+          <label class="check"><input type="radio" name="remainder" value="balance" checked> Kalanı velinin bakiyesine borç yaz <span class="muted small">(sonraki ödemeye eklenir)</span></label>
+          <label class="check"><input type="radio" name="remainder" value="new"> Kalan için hemen yeni bir bekleyen ödeme aç</label>
+        </div>
+        <div class="field small" data-over hidden style="color:var(--success)"></div>
         <div class="field">
           <label for="receipt">Dekont / kanıt (isteğe bağlı)</label>
           <input type="file" id="receipt" name="receipt" accept="image/*,.pdf,.heic">
         </div>
         <button class="btn success block">{{ icon('check') }} Ödemeyi tamamla</button>
       </form>
+    </div>
+    {% endif %}
+
+    {% if history %}
+    <div class="card">
+      <h3>{{ icon('history') }} Bu ödemenin geçmişi</h3>
+      {% for h in history %}
+        <div class="hist-row"><span class="small muted nowrap">{{ h.created_at | tarihsaat }}</span>
+          <span class="small"><strong>{{ h.username or 'Sistem' }}</strong> · {{ h.action }}</span></div>
+      {% endfor %}
     </div>
     {% endif %}
 

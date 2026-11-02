@@ -4,11 +4,12 @@ from collections import defaultdict, deque
 from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
+from .audit import log
 from .db import get_db
 
 bp = Blueprint("auth", __name__)
 
-PUBLIC_ENDPOINTS = {"auth.login", "static"}
+PUBLIC_ENDPOINTS = {"auth.login", "static", "public.robots", "public.manifest", "public.service_worker"}
 
 # Basit kaba kuvvet koruması: 15 dakikada 8 hatalı deneme
 _failures = defaultdict(deque)
@@ -64,11 +65,15 @@ def login():
                 session["_csrf"] = csrf
             session["user_id"] = user["id"]
             session.permanent = bool(request.form.get("remember"))
+            log("Giriş yapıldı", "", "auth", user=user)
+            get_db().commit()
             nxt = request.args.get("next") or ""
             if not nxt.startswith("/") or nxt.startswith("//"):
                 nxt = url_for("main.dashboard")
             return redirect(nxt)
         _failures[ip].append(time.time())
+        log("Hatalı giriş denemesi", f"kullanıcı adı: {username[:40]}", "auth", user=None)
+        get_db().commit()
         time.sleep(0.5)
         flash("Kullanıcı adı veya şifre hatalı.", "error")
     return render_template("login.html")
@@ -76,5 +81,8 @@ def login():
 
 @bp.route("/cikis", methods=["POST"])
 def logout():
+    if g.user:
+        log("Çıkış yapıldı", "", "auth")
+        get_db().commit()
     session.clear()
     return redirect(url_for("auth.login"))

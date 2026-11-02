@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS payments (
     -- ödeme oluşturulurken geçerli olan saat ücretleri
     online_unit       REAL NOT NULL DEFAULT 0,
     inperson_unit     REAL NOT NULL DEFAULT 0,
+    -- velinin önceki bakiyesinden bu ödemeye aktarılan tutar (+ borç, - alacak)
+    carry_in          REAL NOT NULL DEFAULT 0,
     amount            REAL NOT NULL,
     due_date          TEXT,
     status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
@@ -107,6 +109,20 @@ CREATE TABLE IF NOT EXISTS notes (
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT
 );
+
+-- İşlem geçmişi
+CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER,
+    username   TEXT NOT NULL DEFAULT '',
+    action     TEXT NOT NULL,
+    detail     TEXT NOT NULL DEFAULT '',
+    entity     TEXT,
+    entity_id  INTEGER,
+    ip         TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
 
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,

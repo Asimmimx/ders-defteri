@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Raporlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Raporlar</h1>
+    <div class="muted small">Aylık tahsilat, komisyon ve ders saati özeti. Excel'de açılabilen CSV olarak indirilebilir.</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('reports.export_csv', ay=m, tur='tahsilat') }}">{{ icon('download') }} {{ label }} tahsilatları</a>
+    <a class="btn" href="{{ url_for('reports.export_csv', tur='odemeler') }}">{{ icon('download') }} Tüm ödemeler</a>
+  </div>
+</div>
+
+<div class="toolbar">
+  <a class="btn sm" href="?ay={{ prev }}">← {{ prev | ay }}</a>
+  <form method="get" class="inline"><input type="month" name="ay" value="{{ m }}" onchange="this.form.submit()" aria-label="Ay"></form>
+  {% if not is_current %}<a class="btn sm" href="?ay={{ next }}">{{ next | ay }} →</a>{% endif %}
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="label">{{ label }} tahsilat</div><div class="value" style="color:var(--success)">{{ total_paid | money }}</div><div class="sub">{{ paid | length }} ödeme</div></div>
+  <div class="stat accent"><div class="label">{{ label }} komisyonum</div><div class="value">{{ total_commission | money }}</div><div class="sub">Bana ödenen: {{ payouts | money }}</div></div>
+  <div class="stat"><div class="label">Bu ay oluşturulan ödemeler</div><div class="value">{{ created.s | money }}</div><div class="sub">{{ created.c }} kayıt</div></div>
+  <div class="stat"><div class="label">Bu ay girilen ders saati</div><div class="value">{{ (created.on_h + created.in_h) | qty }} saat</div><div class="sub">{{ created.on_h | qty }} online · {{ created.in_h | qty }} yüz yüze</div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Öğrenci bazında ({{ label }})</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Öğrenci</th><th class="right">Saat</th><th class="right">Tahsilat</th><th class="right">Komisyon</th></tr></thead>
+      <tbody>
+      {% for e in by_student %}
+        <tr>
+          <td><span class="dot" style="background:{{ e.color }}"></span>{{ e.name }}<div class="small muted">{{ e.parent }}</div></td>
+          <td class="right small nowrap">{{ e.on | qty }} on · {{ e.inp | qty }} yy</td>
+          <td class="right nowrap">{{ e.paid | money }}</td>
+          <td class="right nowrap" style="color:var(--success)">{{ e.commission | money }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">Bu ay tahsilat yok.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Ödeme yöntemleri</h2>
+      {% for k, v in methods.items() %}
+        <div class="row-between"><span>{{ k }}</span><strong>{{ v | money }}</strong></div>
+      {% else %}
+        <p class="empty">—</p>
+      {% endfor %}
+    </div>
+    <div class="card">
+      <h2>Veli bakiyeleri (bugün)</h2>
+      <p class="small muted">Eksik / fazla ödemelerden kalan ve henüz bir ödemeye aktarılmamış tutarlar.</p>
+      {% for d in debts %}
+        <div class="row-between">
+          <a href="{{ url_for('main.parent_detail', pid=d.id) }}">{{ d.name }}</a>
+          {% if d.balance > 0 %}<span class="badge overdue">{{ d.balance | money }} borç</span>{% else %}<span class="badge paid">{{ (-d.balance) | money }} alacak</span>{% endif %}
+        </div>
+      {% else %}
+        <p class="empty">Açık bakiye yok.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>{{ label }} tahsilatları</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Tarih</th><th>Veli / Öğrenci</th><th>Yöntem</th><th class="right">Tutar</th><th class="right">Ödenen</th><th class="right">Komisyon</th></tr></thead>
+    <tbody>
+    {% for p in paid %}
+      <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">
+        <td class="small nowrap">{{ p.paid_at | tarih }}</td>
+        <td><span class="dot" style="background:{{ p.color }}"></span><strong>{{ p.parent_name }}</strong><div class="small muted">{{ p.student_name }}</div></td>
+        <td class="small">{{ p.method or '—' }}</td>
+        <td class="right nowrap">{{ p.amount | money }}</td>
+        <td class="right nowrap">{{ p.paid_amount | money }}{% if p.paid_amount < p.amount - 0.005 %} <span class="badge pending">Kısmi</span>{% endif %}</td>
+        <td class="right nowrap" style="color:var(--success)">{{ p.commission_amount | money }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">Kayıt yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

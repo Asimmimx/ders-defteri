@@ -9,6 +9,7 @@
     <div class="muted">{% if parent.phone %}<a href="tel:{{ parent.phone }}">{{ parent.phone }}</a>{% else %}Telefon yok{% endif %}</div>
   </div>
   <div class="form-actions">
+    <a class="btn" href="{{ url_for('main.parent_statement', pid=parent.id) }}">{{ icon('print') }} Hesap dökümü</a>
     <a class="btn" href="{{ url_for('main.parent_edit', pid=parent.id) }}">{{ icon('edit') }} Düzenle</a>
     {% if students %}
     <a class="btn primary" href="{{ url_for('payments.new', ogrenci=students[0].id) }}">{{ icon('plus') }} Ödeme ekle</a>
@@ -19,7 +20,10 @@
 <div class="stats">
   <div class="stat"><div class="label">Bekleyen</div><div class="value" style="color:var(--warning)">{{ pending_total | money }}</div></div>
   <div class="stat"><div class="label">Toplam ödenen</div><div class="value" style="color:var(--success)">{{ paid_total | money }}</div></div>
-  <div class="stat"><div class="label">Öğrenci</div><div class="value">{{ students | length }}</div></div>
+  <div class="stat"><div class="label">Veli bakiyesi</div>
+    {% if balance > 0 %}<div class="value" style="color:var(--danger)">{{ balance | money }}</div><div class="sub">Borç · sonraki ödemeye eklenebilir</div>
+    {% elif balance < 0 %}<div class="value" style="color:var(--success)">{{ (-balance) | money }}</div><div class="sub">Alacak · sonraki ödemeden düşülebilir</div>
+    {% else %}<div class="value">0 ₺</div><div class="sub">Açık bakiye yok</div>{% endif %}</div>
 </div>
 
 <div class="grid grid-2">

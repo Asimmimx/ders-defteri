@@ -17,7 +17,7 @@
 <div class="card">
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Veli</th><th>Öğrenci(ler)</th><th>Telefon</th><th class="right">Bekleyen</th></tr></thead>
+    <thead><tr><th>Veli</th><th>Öğrenci(ler)</th><th>Telefon</th><th class="right">Bekleyen</th><th class="right">Bakiye</th></tr></thead>
     <tbody>
     {% for p in parents %}
       <tr class="clickable" data-href="{{ url_for('main.parent_detail', pid=p.id) }}">
@@ -25,9 +25,10 @@
         <td>{{ p.children or '—' }}</td>
         <td class="nowrap">{{ p.phone or '—' }}</td>
         <td class="right nowrap">{% if p.pending_total %}<span class="badge pending">{{ p.pending_total | money }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="right nowrap">{% if p.balance > 0.005 %}<span class="badge overdue">{{ p.balance | money }}</span>{% elif p.balance < -0.005 %}<span class="badge paid">+{{ (-p.balance) | money }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       </tr>
     {% else %}
-      <tr><td colspan="4" class="empty">{% if q %}Sonuç bulunamadı.{% else %}Henüz veli eklenmedi. <a href="{{ url_for('main.parent_new') }}">İlk veliyi ekleyin →</a>{% endif %}</td></tr>
+      <tr><td colspan="5" class="empty">{% if q %}Sonuç bulunamadı.{% else %}Henüz veli eklenmedi. <a href="{{ url_for('main.parent_new') }}">İlk veliyi ekleyin →</a>{% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Daha fazla{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Daha fazla</h1></div>
+<div class="card more-list">
+  <a href="{{ url_for('notes.index') }}">{{ icon('note') }} <span>Notlar</span></a>
+  <a href="{{ url_for('reports.index') }}">{{ icon('chart') }} <span>Raporlar</span></a>
+  <a href="{{ url_for('settings.index') }}">{{ icon('settings') }} <span>Ayarlar</span></a>
+  <a href="{{ url_for('settings.audit') }}">{{ icon('history') }} <span>İşlem geçmişi</span></a>
+</div>
+<div class="card">
+  <div class="muted small">Giriş yapan: <strong>{{ g.user.full_name or g.user.username }}</strong></div>
+  <form method="post" action="{{ url_for('auth.logout') }}" style="margin-top:10px">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn block">{{ icon('logout') }} Çıkış yap</button>
+  </form>
+</div>
+<div class="card small muted" id="install-hint">
+  <strong>Telefona uygulama olarak ekleyin:</strong><br>
+  Android (Chrome): menü ⋮ → <em>Ana ekrana ekle / Uygulamayı yükle</em>.<br>
+  iPhone (Safari): paylaş ⬆︎ → <em>Ana Ekrana Ekle</em>.
+</div>
+{% endblock %}

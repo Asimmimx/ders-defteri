@@ -295,3 +295,17 @@ h1 svg, h2 svg, h3 svg { width: 1.05em; height: 1.05em; vertical-align: -0.15em;
 /* Bildirimde "Geri al" butonu */
 .toast.has-action.show { pointer-events: auto; display: flex; align-items: center; gap: 14px; }
 .toast-action { background: none; border: none; color: var(--primary-soft); font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* Kısmi ödeme, bakiye, raporlar, geçmiş */
+.carry-box, .partial-box { background: var(--bg); border: 1px dashed var(--line); border-radius: 10px; padding: 10px 12px; }
+.partial-box .check { margin-bottom: 4px; }
+.row-between { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.row-between:last-child { border-bottom: none; }
+.hist-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.hist-row:last-child { border-bottom: none; }
+input[type=month] { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); font: inherit; }
+.more-list { padding: 6px 0; }
+.more-list a { display: flex; align-items: center; gap: 12px; padding: 14px 18px; color: var(--text); font-weight: 600; border-bottom: 1px solid var(--line); }
+.more-list a:last-child { border-bottom: none; }
+.more-list a:hover { background: var(--bg); text-decoration: none; }
+.more-list svg { width: 20px; height: 20px; color: var(--primary); }

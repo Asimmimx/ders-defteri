@@ -5,7 +5,8 @@ from flask import (Blueprint, abort, current_app, flash, g, redirect, render_tem
                    request, send_from_directory, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import backup
+from . import backup, notify
+from .audit import log
 from .db import get_db, get_settings, set_setting
 from .utils import commission_label, parse_int, parse_money
 
@@ -23,6 +24,7 @@ def index():
         users=db.execute("SELECT id, username, full_name, created_at FROM users ORDER BY id").fetchall(),
         backups=backup.list_backups(current_app.config["BACKUP_DIR"]),
         backup_total=sum(b["size"] for b in backup.list_backups(current_app.config["BACKUP_DIR"])),
+        token_hint=("…" + s["telegram_token"][-4:]) if s["telegram_token"] else "",
     )
 
 
@@ -38,6 +40,7 @@ def save_commission():
         return redirect(url_for("settings.index"))
     set_setting("commission_type", ctype)
     set_setting("commission_value", value)
+    log("Komisyon ayarı değişti", commission_label(ctype, value), "settings")
     get_db().commit()
     flash(f"Varsayılan komisyon: {commission_label(ctype, value)}. "
           "(Sadece bundan sonra tamamlanan ödemelere uygulanır.)", "success")
@@ -55,6 +58,7 @@ def save_schedule():
     set_setting("schedule_start_hour", start)
     set_setting("schedule_end_hour", end)
     set_setting("slot_minutes", slot)
+    log("Program ayarı değişti", f"{start}:00–{end}:00, {slot} dk", "settings")
     get_db().commit()
     flash("Program ayarları kaydedildi.", "success")
     return redirect(url_for("settings.index"))
@@ -73,8 +77,10 @@ def save_template(tid=None):
     db = get_db()
     if tid:
         db.execute("UPDATE message_templates SET name = ?, body = ? WHERE id = ?", (name, body, tid))
+        log("Mesaj taslağı güncellendi", name, "template", tid)
     else:
-        db.execute("INSERT INTO message_templates(name, body) VALUES (?, ?)", (name, body))
+        cur = db.execute("INSERT INTO message_templates(name, body) VALUES (?, ?)", (name, body))
+        log("Mesaj taslağı eklendi", name, "template", cur.lastrowid)
     db.commit()
     flash("Taslak kaydedildi.", "success")
     return redirect(url_for("settings.index") + "#taslaklar")
@@ -84,6 +90,7 @@ def save_template(tid=None):
 def delete_template(tid):
     db = get_db()
     db.execute("DELETE FROM message_templates WHERE id = ?", (tid,))
+    log("Mesaj taslağı silindi", f"#{tid}", "template", tid)
     db.commit()
     flash("Taslak silindi.", "success")
     return redirect(url_for("settings.index") + "#taslaklar")
@@ -104,6 +111,7 @@ def change_password():
     else:
         db.execute("UPDATE users SET password_hash = ? WHERE id = ?",
                    (generate_password_hash(request.form["new"]), user["id"]))
+        log("Şifre değiştirildi", user["username"], "user", user["id"])
         db.commit()
         flash("Şifreniz değiştirildi.", "success")
     return redirect(url_for("settings.index") + "#hesap")
@@ -124,6 +132,7 @@ def add_user():
         else:
             db.execute("INSERT INTO users(username, full_name, password_hash) VALUES (?, ?, ?)",
                        (username, request.form.get("full_name", "").strip(), generate_password_hash(password)))
+            log("Kullanıcı eklendi", username, "user")
             db.commit()
             flash(f"{username} kullanıcısı eklendi.", "success")
     return redirect(url_for("settings.index") + "#hesap")
@@ -135,7 +144,9 @@ def delete_user(uid):
         flash("Kendi hesabınızı silemezsiniz.", "error")
     else:
         db = get_db()
+        row = db.execute("SELECT username FROM users WHERE id = ?", (uid,)).fetchone()
         db.execute("DELETE FROM users WHERE id = ?", (uid,))
+        log("Kullanıcı silindi", row["username"] if row else f"#{uid}", "user", uid)
         db.commit()
         flash("Kullanıcı silindi.", "success")
     return redirect(url_for("settings.index") + "#hesap")
@@ -147,8 +158,11 @@ def delete_user(uid):
 def make_backup():
     limit = get_settings()["backup_limit_mb"]
     target, removed = backup.create_backup(
-        current_app.config["DATABASE"], current_app.config["BACKUP_DIR"], limit, label="elle"
+        current_app.config["DATABASE"], current_app.config["BACKUP_DIR"], limit, label="elle",
+        upload_dir=current_app.config["UPLOAD_DIR"],
     )
+    log("Elle yedek alındı", target.name, "backup")
+    get_db().commit()
     msg = f"Yedek alındı: {target.name}"
     if removed:
         msg += f" ({len(removed)} eski yedek sınır nedeniyle silindi)"
@@ -158,9 +172,85 @@ def make_backup():
 
 @bp.route("/ayarlar/yedek/<name>")
 def download_backup(name):
-    if not re.fullmatch(r"odeme-[\w\-]+\.db\.gz", name):
+    if not re.fullmatch(backup.NAME_RE, name):
         abort(404)
     path = Path(current_app.config["BACKUP_DIR"]) / name
     if not path.is_file():
         abort(404)
     return send_from_directory(current_app.config["BACKUP_DIR"], name, as_attachment=True)
+
+
+# ------------------------------------------------------------ Telegram bildirimleri
+
+@bp.route("/ayarlar/telegram", methods=["POST"])
+def save_telegram():
+    f = request.form
+    token = f.get("telegram_token", "").strip()
+    chat_id = f.get("telegram_chat_id", "").strip()
+    if token and not re.fullmatch(r"\d{5,}:[A-Za-z0-9_\-]{20,}", token):
+        flash("Bot anahtarı (token) geçersiz görünüyor. BotFather'ın verdiği 123456:ABC... biçiminde olmalı.", "error")
+        return redirect(url_for("settings.index") + "#telegram")
+    if chat_id and not re.fullmatch(r"-?\d{3,20}", chat_id):
+        flash("Chat ID sadece rakamlardan oluşmalı.", "error")
+        return redirect(url_for("settings.index") + "#telegram")
+    if token:  # boş bırakılırsa mevcut anahtar korunur
+        set_setting("telegram_token", token)
+    set_setting("telegram_chat_id", chat_id)
+    set_setting("telegram_enabled", "1" if f.get("telegram_enabled") else "0")
+    log("Telegram ayarı değişti", "açık" if f.get("telegram_enabled") else "kapalı", "settings")
+    get_db().commit()
+    flash("Telegram ayarları kaydedildi.", "success")
+    return redirect(url_for("settings.index") + "#telegram")
+
+
+@bp.route("/ayarlar/telegram/chat-id", methods=["POST"])
+def telegram_find_chat():
+    s = get_settings()
+    if not s["telegram_token"]:
+        flash("Önce bot anahtarını kaydedin.", "error")
+        return redirect(url_for("settings.index") + "#telegram")
+    chat_id, info = notify.find_chat_id(s["telegram_token"])
+    if chat_id:
+        set_setting("telegram_chat_id", chat_id)
+        get_db().commit()
+        flash(f"Chat ID bulundu ve kaydedildi: {chat_id} ({info})", "success")
+    else:
+        flash(info, "error")
+    return redirect(url_for("settings.index") + "#telegram")
+
+
+@bp.route("/ayarlar/telegram/test", methods=["POST"])
+def telegram_test():
+    s = get_settings()
+    if not (s["telegram_token"] and s["telegram_chat_id"]):
+        flash("Bot anahtarı ve Chat ID gerekli.", "error")
+        return redirect(url_for("settings.index") + "#telegram")
+    text = notify.daily_summary(get_db()) or "✅ Ödeme Takip bağlantısı çalışıyor. Şu an bildirilecek ödeme yok."
+    ok, err = notify.send_message(s["telegram_token"], s["telegram_chat_id"], text)
+    flash("Test mesajı gönderildi, Telegram'ı kontrol edin." if ok else f"Gönderilemedi: {err}",
+          "success" if ok else "error")
+    return redirect(url_for("settings.index") + "#telegram")
+
+
+# ------------------------------------------------------------ İşlem geçmişi
+
+@bp.route("/ayarlar/gecmis")
+def audit():
+    db = get_db()
+    q = request.args.get("q", "").strip()
+    uid = parse_int(request.args.get("kullanici"), 0)
+    page = max(parse_int(request.args.get("sayfa"), 1), 1)
+    per = 100
+    where, args = " WHERE 1 = 1", []
+    if q:
+        where += " AND (action LIKE ? OR detail LIKE ?)"
+        args += [f"%{q}%"] * 2
+    if uid:
+        where += " AND user_id = ?"
+        args.append(uid)
+    total = db.execute("SELECT COUNT(*) FROM audit_log" + where, args).fetchone()[0]
+    rows = db.execute("SELECT * FROM audit_log" + where + " ORDER BY id DESC LIMIT ? OFFSET ?",
+                      (*args, per, (page - 1) * per)).fetchall()
+    users = db.execute("SELECT id, username, full_name FROM users ORDER BY id").fetchall()
+    return render_template("audit.html", rows=rows, q=q, uid=uid, page=page,
+                           pages=max((total + per - 1) // per, 1), total=total, users=users)

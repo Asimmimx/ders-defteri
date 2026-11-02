@@ -2,6 +2,7 @@ from datetime import datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from .audit import log
 from .db import get_db
 from .main import commission_balance
 from .utils import money, parse_money, today_iso
@@ -49,8 +50,10 @@ def add_payout():
     except ValueError:
         paid_on = today_iso()
     db = get_db()
-    db.execute("INSERT INTO payouts(amount, paid_on, note) VALUES (?, ?, ?)",
-               (amount, paid_on, request.form.get("note", "").strip()))
+    cur = db.execute("INSERT INTO payouts(amount, paid_on, note) VALUES (?, ?, ?)",
+                     (amount, paid_on, request.form.get("note", "").strip()))
+    log("Komisyon ödemesi kaydedildi", f"{money(amount)} ({paid_on}) {request.form.get('note', '').strip()}",
+        "payout", cur.lastrowid)
     db.commit()
     flash(f"{money(amount)} bakiyeden düşüldü.", "success")
     return redirect(url_for("commission.index"))
@@ -59,7 +62,10 @@ def add_payout():
 @bp.route("/komisyon/odeme/<int:oid>/sil", methods=["POST"])
 def delete_payout(oid):
     db = get_db()
+    row = db.execute("SELECT * FROM payouts WHERE id = ?", (oid,)).fetchone()
     db.execute("DELETE FROM payouts WHERE id = ?", (oid,))
+    if row:
+        log("Komisyon ödemesi silindi", f"{money(row['amount'])} ({row['paid_on']})", "payout", oid)
     db.commit()
     flash("Kayıt silindi, bakiye güncellendi.", "success")
     return redirect(url_for("commission.index"))

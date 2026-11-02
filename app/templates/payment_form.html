@@ -31,7 +31,7 @@
       <select id="student_id" name="student_id" required>
         <option value="">Seçin…</option>
         {% for s in students %}
-          <option value="{{ s.id }}" data-online="{{ s.online_price }}" data-inperson="{{ s.inperson_price }}" {{ 'selected' if s.id == selected }}>
+          <option value="{{ s.id }}" data-online="{{ s.online_price }}" data-inperson="{{ s.inperson_price }}" data-balance="{{ (s.parent_balance or 0) | round(2) }}" {{ 'selected' if s.id == selected }}>
             {{ s.name }} — {{ s.parent_name }} (Online {{ s.online_price | money }} / Yüz yüze {{ s.inperson_price | money }} saatlik)
           </option>
         {% endfor %}
@@ -51,6 +51,18 @@
         <div class="hint" data-price-inperson></div>
       </div>
     </div>
+
+    {% if not payment %}
+    <div class="field carry-box" data-carry-box hidden>
+      <label class="check"><input type="checkbox" name="include_carry" value="1" data-include-carry {{ 'checked' if not form or form.include_carry }}>
+        <span data-carry-label></span></label>
+      <div class="hint">Velinin önceki eksik / fazla ödemesi bu ödemeye eklenir ve mesajda ayrı satır olarak görünür.</div>
+    </div>
+    {% elif payment.carry_in %}
+    <div class="field carry-box" data-carry-fixed="{{ payment.carry_in }}">
+      <span class="small">Bu ödemeye aktarılan önceki bakiye: <strong>{{ payment.carry_in | money }}</strong></span>
+    </div>
+    {% endif %}
 
     <div class="row">
       <div class="field">

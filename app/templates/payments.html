@@ -9,7 +9,7 @@
 {% include "_stats.html" %}
 <form class="toolbar" method="get">
   <div class="tabs">
-    {% for key, label in [('all', 'Tümü'), ('pending', 'Bekleyen'), ('overdue', 'Geciken'), ('paid', 'Ödenen'), ('cancelled', 'İptal')] %}
+    {% for key, label in [('all', 'Tümü'), ('pending', 'Bekleyen'), ('overdue', 'Geciken'), ('paid', 'Ödenen'), ('partial', 'Kısmi'), ('cancelled', 'İptal')] %}
       <a href="?durum={{ key }}&q={{ q | urlencode }}" class="{{ 'active' if status == key }}">{{ label }}</a>
     {% endfor %}
   </div>

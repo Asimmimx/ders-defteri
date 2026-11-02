@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request
 
+from .audit import log
 from .db import get_db, get_settings
-from .utils import parse_int
+from .utils import DAYS, minutes_to_hhmm, parse_int
 
 bp = Blueprint("schedule", __name__)
 
@@ -93,6 +94,8 @@ def api_create():
         "INSERT INTO schedule_slots(student_id, day, start_min, lesson_type, note) VALUES (?, ?, ?, ?, ?)",
         (sid, vals["day"], vals["start_min"], vals.get("lesson_type", "inperson"), vals.get("note", "")),
     )
+    log("Programa ders eklendi", f"{_student_name(db, sid)} · {_when(vals['day'], vals['start_min'])}"
+        f" · {'online' if vals.get('lesson_type') == 'online' else 'yüz yüze'}", "slot", cur.lastrowid)
     db.commit()
     return {"id": cur.lastrowid}, 201
 
@@ -108,8 +111,16 @@ def api_update(slot_id):
     db = get_db()
     if "day" in vals and "start_min" in vals and _is_busy(db, vals["day"], vals["start_min"]):
         return {"error": BUSY_MSG}, 409
+    old = db.execute("SELECT * FROM schedule_slots WHERE id = ?", (slot_id,)).fetchone()
     sets = ", ".join(f"{k} = ?" for k in vals)
     cur = db.execute(f"UPDATE schedule_slots SET {sets} WHERE id = ?", (*vals.values(), slot_id))
+    if old and ("day" in vals or "start_min" in vals):
+        log("Programda ders taşındı", f"{_student_name(db, old['student_id'])} · "
+            f"{_when(old['day'], old['start_min'])} → {_when(vals.get('day', old['day']), vals.get('start_min', old['start_min']))}",
+            "slot", slot_id)
+    elif old:
+        log("Programda ders düzenlendi", f"{_student_name(db, old['student_id'])} · {_when(old['day'], old['start_min'])}",
+            "slot", slot_id)
     db.commit()
     if cur.rowcount == 0:
         return {"error": "Bulunamadı"}, 404
@@ -119,7 +130,11 @@ def api_update(slot_id):
 @bp.route("/api/program/<int:slot_id>", methods=["DELETE"])
 def api_delete(slot_id):
     db = get_db()
+    old = db.execute("SELECT * FROM schedule_slots WHERE id = ?", (slot_id,)).fetchone()
     db.execute("DELETE FROM schedule_slots WHERE id = ?", (slot_id,))
+    if old:
+        log("Programdan ders silindi", f"{_student_name(db, old['student_id'])} · {_when(old['day'], old['start_min'])}",
+            "slot", slot_id)
     db.commit()
     return {"ok": True}
 
@@ -147,6 +162,9 @@ def busy_create():
             continue
         db.execute("INSERT INTO busy_blocks(day, start_min, label) VALUES (?, ?, ?)", (vals["day"], m, label))
         added += 1
+    if added:
+        log("Dolu saat eklendi", f"{_when(vals['day'], vals['start_min'])}, {added} blok" + (f" · {label}" if label else ""),
+            "busy")
     db.commit()
     if not added:
         return {"error": "Bu saatte ders var veya zaten dolu."}, 409
@@ -172,6 +190,8 @@ def busy_update(bid):
             return {"error": "Bu saat zaten dolu."}, 409
     label = str(data["label"]).strip()[:60] if "label" in data else row["label"]
     db.execute("UPDATE busy_blocks SET day = ?, start_min = ?, label = ? WHERE id = ?", (day, m, label, bid))
+    log("Dolu saat düzenlendi", f"{_when(row['day'], row['start_min'])} → {_when(day, m)}" + (f" · {label}" if label else ""),
+        "busy", bid)
     db.commit()
     return {"ok": True}
 
@@ -179,6 +199,20 @@ def busy_update(bid):
 @bp.route("/api/dolu/<int:bid>", methods=["DELETE"])
 def busy_delete(bid):
     db = get_db()
+    row = db.execute("SELECT * FROM busy_blocks WHERE id = ?", (bid,)).fetchone()
     db.execute("DELETE FROM busy_blocks WHERE id = ?", (bid,))
+    if row:
+        log("Dolu saat silindi", _when(row["day"], row["start_min"]) + (f" · {row['label']}" if row["label"] else ""),
+            "busy", bid)
     db.commit()
     return {"ok": True}
+
+
+
+def _when(day, start_min):
+    return f"{DAYS[day]} {minutes_to_hhmm(start_min)}"
+
+
+def _student_name(db, sid):
+    row = db.execute("SELECT name FROM students WHERE id = ?", (sid,)).fetchone()
+    return row["name"] if row else f"#{sid}"

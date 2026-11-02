@@ -1,5 +1,6 @@
 {% macro status_badge(p, today) -%}
-  {%- if p.status == 'paid' -%}<span class="badge paid">Ödendi</span>
+  {%- if p.status == 'paid' and p.paid_amount is not none and p.paid_amount < p.amount - 0.005 -%}<span class="badge pending">Kısmi ödendi</span>
+  {%- elif p.status == 'paid' -%}<span class="badge paid">Ödendi</span>
   {%- elif p.status == 'cancelled' -%}<span class="badge cancelled">İptal</span>
   {%- elif p.due_date and p.due_date < today -%}<span class="badge overdue">Gecikti</span>
   {%- else -%}<span class="badge pending">Bekliyor</span>

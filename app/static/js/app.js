@@ -113,16 +113,30 @@
       const o = sel.selectedOptions[0];
       return { on: parseFloat(o?.dataset.online || 0), inp: parseFloat(o?.dataset.inperson || 0) };
     };
+    const carryBox = $("[data-carry-box]", pform);
+    const carryChk = $("[data-include-carry]", pform);
+    const carryFixed = parseFloat($("[data-carry-fixed]", pform)?.dataset.carryFixed || 0);
+    // Velinin önceki bakiyesi (yeni ödemede seçili öğrenciye göre, düzenlemede kayıtlı tutar)
+    const carry = () => {
+      if (!carryBox) return carryFixed;
+      const b = parseFloat(sel.selectedOptions[0]?.dataset.balance || 0);
+      carryBox.hidden = Math.abs(b) < 0.005;
+      $("[data-carry-label]", pform).textContent = b > 0
+        ? `Velinin önceki borcunu ekle (+${App.money(b)})`
+        : `Velinin önceki fazla ödemesini düş (−${App.money(-b)})`;
+      return carryChk.checked && Math.abs(b) >= 0.005 ? b : 0;
+    };
     const recalc = (force) => {
       const p = prices();
       $("[data-price-online]", pform).textContent = p.on ? `Saatlik ${App.money(p.on)}` : "";
       $("[data-price-inperson]", pform).textContent = p.inp ? `Saatlik ${App.money(p.inp)}` : "";
-      const total = App.hours(on.value) * p.on + App.hours(inp.value) * p.inp;
+      const total = App.hours(on.value) * p.on + App.hours(inp.value) * p.inp + carry();
       if ((!manual || force) && total > 0) amount.value = App.num(total);
     };
     amount.addEventListener("input", () => { manual = amount.value.trim() !== ""; });
     [on, inp].forEach((el) => el.addEventListener("input", () => { manual = false; recalc(); }));
     sel.addEventListener("change", () => { manual = false; recalc(); });
+    carryChk?.addEventListener("change", () => { manual = false; recalc(); });
     recalc();
   }
 
@@ -170,14 +184,28 @@
   if (comp) {
     const paid = $("[data-paid]", comp);
     const com = $("[data-commission]", comp);
+    const partial = $("[data-partial]", comp);
+    const over = $("[data-over]", comp);
+    const due = parseFloat(comp.dataset.amount) || 0;
     let manual = false;
     com.addEventListener("input", () => { manual = true; });
+    // Eksik / fazla ödeme bilgisi
+    const checkDiff = () => {
+      const v = App.parseMoney(paid.value);
+      const diff = Math.round((due - (v || 0)) * 100) / 100;
+      partial.hidden = !(v > 0 && diff > 0.005);
+      over.hidden = !(v > 0 && diff < -0.005);
+      if (!partial.hidden) $("[data-partial-text]", comp).textContent = `Kısmi ödeme: ${App.money(diff)} eksik kalıyor.`;
+      if (!over.hidden) over.textContent = `Fazla ödeme: ${App.money(-diff)} velinin bakiyesine alacak olarak yazılacak.`;
+    };
     paid.addEventListener("input", () => {
+      checkDiff();
       if (manual) return;
       const v = App.parseMoney(paid.value);
       const cv = parseFloat(comp.dataset.cvalue) || 0;
       const val = comp.dataset.ctype === "fixed" ? cv * (parseFloat(comp.dataset.lessons) || 0) : (v || 0) * cv / 100;
       com.value = App.num(val);
     });
+    checkDiff();
   }
 })();

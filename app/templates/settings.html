@@ -2,7 +2,8 @@
 {% from "_macros.html" import csrf %}
 {% block title %}Ayarlar{% endblock %}
 {% block content %}
-<div class="page-head"><h1>Ayarlar</h1></div>
+<div class="page-head"><h1>Ayarlar</h1>
+  <a class="btn" href="{{ url_for('settings.audit') }}">{{ icon('history') }} İşlem geçmişi</a></div>
 
 <div class="grid grid-2">
   <div class="card" id="komisyon">
@@ -130,12 +131,46 @@
   </div>
 </div>
 
+<div class="card" id="telegram">
+  <h2>Telegram bildirimi</h2>
+  <p class="small muted">Her sabah 09:00'da; bugün ve yarın son günü olan, ayrıca geciken ödemelerin özeti Telegram'dan gönderilir. Bildirilecek ödeme yoksa mesaj gelmez.</p>
+  <details class="box" style="margin-bottom:12px">
+    <summary class="small">Nasıl kurulur? (2 dakika)</summary>
+    <ol class="small" style="margin:8px 0 0;padding-left:20px">
+      <li>Telegram'da <strong>@BotFather</strong>'ı açın, <code>/newbot</code> yazın, bota bir ad verin.</li>
+      <li>BotFather'ın verdiği <strong>anahtarı (token)</strong> aşağıya yapıştırıp kaydedin.</li>
+      <li>Kendi botunuzu Telegram'da açıp <code>/start</code> yazın (grup için: botu gruba ekleyip bir mesaj atın).</li>
+      <li>"Chat ID'yi otomatik bul" butonuna basın, sonra "Test mesajı gönder" ile deneyin.</li>
+    </ol>
+  </details>
+  <form method="post" action="{{ url_for('settings.save_telegram') }}">
+    {{ csrf() }}
+    <div class="row">
+      <div class="field">
+        <label for="telegram_token">Bot anahtarı (token)</label>
+        <input type="password" id="telegram_token" name="telegram_token" autocomplete="off"
+               placeholder="{{ 'Kayıtlı (' ~ token_hint ~ ') — değiştirmek için yeni anahtar girin' if token_hint else '123456789:AA...' }}">
+      </div>
+      <div class="field">
+        <label for="telegram_chat_id">Chat ID</label>
+        <input type="text" id="telegram_chat_id" name="telegram_chat_id" value="{{ s.telegram_chat_id }}" inputmode="numeric" placeholder="ör. 123456789">
+      </div>
+    </div>
+    <div class="field"><label class="check"><input type="checkbox" name="telegram_enabled" value="1" {{ 'checked' if s.telegram_enabled == '1' }}> Günlük bildirimi aç</label></div>
+    <div class="form-actions">
+      <button class="btn primary">Kaydet</button>
+      <button class="btn" formaction="{{ url_for('settings.telegram_find_chat') }}">Chat ID'yi otomatik bul</button>
+      <button class="btn" formaction="{{ url_for('settings.telegram_test') }}">Test mesajı gönder</button>
+    </div>
+  </form>
+</div>
+
 <div class="card" id="yedekler">
   <div class="card-head">
     <h2>Veritabanı yedekleri</h2>
     <form method="post" action="{{ url_for('settings.make_backup') }}">{{ csrf() }}<button class="btn">{{ icon('download') }} Şimdi yedek al</button></form>
   </div>
-  <p class="small muted">Her hafta otomatik yedek alınır. Toplam {{ s.backup_limit_mb }} MB sınırı aşılınca en eski yedekler silinir.</p>
+  <p class="small muted">Her pazar 03:00'te otomatik yedek alınır; yedek <strong>veritabanını ve tüm dekontları</strong> içerir (.tar.gz). Toplam {{ s.backup_limit_mb }} MB sınırı aşılınca en eski yedekler silinir. Sunucu dışında da saklamak için ara sıra indirmeniz önerilir.</p>
   {% set used_pct = (backup_total / (s.backup_limit_mb|float * 1024 * 1024) * 100) if s.backup_limit_mb|float > 0 else 0 %}
   <div class="bar" style="margin-bottom:4px"><span style="width:{{ [used_pct, 100] | min }}%"></span></div>
   <div class="small muted" style="margin-bottom:12px">{{ '%.2f' % (backup_total / 1048576) }} MB / {{ s.backup_limit_mb }} MB kullanılıyor · {{ backups | length }} yedek</div>
@@ -145,7 +180,7 @@
     <tbody>
     {% for b in backups %}
       <tr>
-        <td class="small">{{ b.name }}</td>
+        <td class="small">{{ b.name }}{% if not b.with_receipts %} <span class="badge cancelled">sadece veritabanı</span>{% endif %}</td>
         <td class="small nowrap">{{ b.time.strftime('%d.%m.%Y %H:%M') }}</td>
         <td class="right small nowrap">{{ '%.1f' % (b.size / 1024) }} KB</td>
         <td class="right"><a class="btn sm" href="{{ url_for('settings.download_backup', name=b.name) }}">İndir</a></td>

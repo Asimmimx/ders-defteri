@@ -70,6 +70,8 @@ def create_app():
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("X-Frame-Options", "DENY")
         resp.headers.setdefault("Referrer-Policy", "same-origin")
+        # Arama motorları ve yapay zekâ botları indekslemesin
+        resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai"
         return resp
 
     app.jinja_env.globals.update(
@@ -93,8 +95,10 @@ def create_app():
     from .schedule import bp as schedule_bp
     from .settings import bp as settings_bp
     from .notes import bp as notes_bp
+    from .reports import bp as reports_bp
+    from .public import bp as public_bp
 
-    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, notes_bp, settings_bp):
+    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, notes_bp, reports_bp, settings_bp, public_bp):
         app.register_blueprint(bp)
 
     from flask import render_template

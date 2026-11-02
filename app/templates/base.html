@@ -5,10 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}Ödeme Takip{% endblock %} · Ödeme Takip</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233d6bff'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>₺</text></svg>">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+{% include "_head.html" %}
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -20,8 +18,10 @@
   ('schedule.index', 'Program', 'calendar', ['schedule.']),
   ('commission.index', 'Komisyon', 'percent', ['commission.']),
   ('notes.index', 'Notlar', 'note', ['notes.']),
+  ('reports.index', 'Raporlar', 'chart', ['reports.']),
   ('settings.index', 'Ayarlar', 'settings', ['settings.']),
 ] %}
+{% set mobile_nav = nav[:5] + [('main.more', 'Daha', 'menu', ['main.more', 'notes.', 'reports.', 'settings.'])] %}
 {% macro is_active(prefixes, ep) -%}
   {%- set ns = namespace(a=false) -%}
   {%- for p in prefixes %}{% if ep.startswith(p) %}{% set ns.a = true %}{% endif %}{% endfor -%}
@@ -53,13 +53,13 @@
 </div>
 
 <nav class="mobile-nav">
-  {% for endpoint, label, ic, prefixes in nav %}
+  {% for endpoint, label, ic, prefixes in mobile_nav %}
     <a href="{{ url_for(endpoint) }}" class="{{ 'active' if is_active(prefixes, ep) }}">{{ icon(ic) }}<span>{{ label }}</span></a>
   {% endfor %}
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='js/app.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=5"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

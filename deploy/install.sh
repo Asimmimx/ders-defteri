@@ -26,9 +26,9 @@ chmod 640 "$APP/.env"
 "$APP/.venv/bin/pip" install -q --upgrade pip
 "$APP/.venv/bin/pip" install -q -r "$APP/requirements.txt"
 
-cp "$APP"/deploy/odemetakip.service "$APP"/deploy/odemetakip-backup.service "$APP"/deploy/odemetakip-backup.timer /etc/systemd/system/
+cp "$APP"/deploy/odemetakip*.service "$APP"/deploy/odemetakip*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now odemetakip-backup.timer
+systemctl enable --now odemetakip-backup.timer odemetakip-notify.timer
 systemctl enable odemetakip
 systemctl restart odemetakip
 sleep 2

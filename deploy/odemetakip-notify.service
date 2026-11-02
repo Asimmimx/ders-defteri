@@ -1,0 +1,10 @@
+[Unit]
+Description=Odeme Takip gunluk Telegram bildirimi
+
+[Service]
+Type=oneshot
+User=odemetakip
+Group=odemetakip
+WorkingDirectory=/opt/odemetakip
+EnvironmentFile=/opt/odemetakip/.env
+ExecStart=/opt/odemetakip/.venv/bin/python manage.py notify

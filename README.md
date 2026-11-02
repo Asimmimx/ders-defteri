@@ -36,6 +36,7 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 | 🔐 **Giriş zorunlu** | Oturum açmadan hiçbir sayfa görünmez. Hatalı şifre denemelerine karşı kilit, CSRF koruması, güvenli çerezler. Birden fazla tam yetkili kullanıcı. |
 | 👨‍👩‍👧 **Veliler ve öğrenciler** | Bir veliye birden fazla çocuk. Her çocuğa bir renk ve kendi tarifesi (online / yüz yüze saatlik ücret). |
 | 💳 **Ödemeler** | Ders saati girilince tutar tarifeden otomatik hesaplanır; **küsuratlı saat** desteklenir (ör. 1,5 saat). Son ödeme tarihi, gecikme takibi, iptal / geri alma. |
+| ➗ **Kısmi ödeme ve veli bakiyesi** | Veli eksik öderse kalan tutar velinin bakiyesine borç yazılır (veya hemen yeni ödeme açılır); fazla öderse alacak yazılır. Sonraki ödemede tek tıkla eklenir/düşülür ve mesajda ayrı satır olarak görünür. |
 | 💬 **Hazır mesaj** | Velinin adı, ders satırları ve toplam tutarla dolu mesaj; tek tıkla kopyala, telefonun SMS uygulamasında veya WhatsApp'ta aç. |
 | 🧾 **Dekont** | Ödeme kapatılırken resim veya PDF dekont eklenir; dosyalar yalnızca giriş yapmış kullanıcılara gösterilir. |
 | 💰 **Asistan komisyonu** | Varsayılan olarak yüzde veya saat başı sabit tutar; öğrenciye özel oran tanımlanabilir. Kazanılan, ödenen ve kalan bakiye ayrı sayfada. |
@@ -43,8 +44,12 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 | ⛔ **Dolu saatler** | Ders dışında meşgul olduğunuz saatleri (okul, iş…) açıklamayla işaretleyin; dolu saate ders eklenemez. |
 | 🖱️ **Hızlı düzenleme** | Programda sağ tıkla (telefonda uzun basarak) sil, 5 saniye içinde "Geri al". |
 | 📝 **Ortak notlar** | Kullanıcılar arasında not paylaşımı; sabitleme ve tamamlandı işareti. |
-| 💾 **Haftalık yedek** | Her pazar otomatik veritabanı yedeği; toplam 100 MB'ı aşınca en eski yedekler silinir. Ayarlar'dan elle yedek alıp indirin. |
-| 📱 **Mobil uyumlu** | Telefonda alt menü, dokun-dokun ile program düzenleme. Açık / koyu tema sisteme göre otomatik. |
+| 🔔 **Telegram bildirimi** | Her sabah 09:00'da bugün/yarın son günü olan ve geciken ödemelerin özeti Telegram'a gelir. |
+| 📊 **Raporlar** | Aylık tahsilat, komisyon, öğrenci bazında ders saati; Excel'de açılan CSV indirme. Veli için yazdırılabilir / PDF **hesap dökümü**. |
+| 🕓 **İşlem geçmişi** | Kim, ne zaman, ne yaptı: ödeme, veli, program, ayar ve giriş kayıtları; her ödemenin kendi geçmişi. |
+| 💾 **Haftalık yedek** | Her pazar otomatik yedek: **veritabanı + tüm dekontlar** tek dosyada; toplam 100 MB'ı aşınca en eski yedekler silinir. Ayarlar'dan elle yedek alıp indirin. |
+| 📱 **Telefona kurulabilir (PWA)** | "Ana ekrana ekle" ile uygulama gibi açılır; telefonda alt menü, dokun-dokun ile program düzenleme. Açık / koyu tema otomatik. |
+| 🙈 **Arama motorlarına kapalı** | `robots.txt` tüm botları ve bilinen yapay zekâ tarayıcılarını engeller; tüm sayfalarda `noindex` başlığı. |
 
 ---
 
@@ -133,7 +138,8 @@ cd /opt/odemetakip && sudo -u odemetakip .venv/bin/python manage.py create-user 
 - `python3-venv` paketini kurar, `odemetakip` adlı sistem kullanıcısını oluşturur
 - Verileri `/var/lib/odemetakip` altında tutar (veritabanı, dekontlar, yedekler)
 - Rastgele `SECRET_KEY` içeren `.env` dosyası oluşturur (yalnızca ilk kurulumda)
-- Sanal ortamı kurar, `odemetakip.service` (gunicorn, `127.0.0.1:8098`) ve `odemetakip-backup.timer` servislerini etkinleştirir
+- Sanal ortamı kurar, `odemetakip.service` (gunicorn, `127.0.0.1:8098`), `odemetakip-backup.timer` (pazar 03:00)
+  ve `odemetakip-notify.timer` (her gün 09:00 Telegram özeti) servislerini etkinleştirir
 
 Uygulama yalnızca `127.0.0.1:8098` adresini dinler. Dışarıya açmak için:
 
@@ -188,7 +194,7 @@ Veritabanı şeması uygulama açılırken otomatik güncellenir; mevcut veriler
 ## Yedekleme ve geri yükleme
 
 - `odemetakip-backup.timer` her **pazar 03:00**'te `manage.py backup` çalıştırır.
-- Yedekler `DATA_DIR/backups/odeme-YYYYMMDD-HHMMSS-*.db.gz` olarak sıkıştırılır.
+- Yedekler `DATA_DIR/backups/odeme-YYYYMMDD-HHMMSS-*.tar.gz` dosyasıdır; içinde `odeme.db` ve `uploads/` (dekontlar) bulunur.
 - Toplam boyut **100 MB**'ı aşınca en eski yedekler silinir (en yeni yedek her zaman korunur).
 - Ayarlar → Veritabanı yedekleri bölümünden elle yedek alınabilir ve indirilebilir.
 
@@ -197,11 +203,12 @@ Geri yükleme:
 ```bash
 sudo systemctl stop odemetakip
 cd /var/lib/odemetakip
-sudo -u odemetakip sh -c 'gunzip -c backups/odeme-20261108-030000-haftalik.db.gz > odeme.db && rm -f odeme.db-wal odeme.db-shm'
+sudo -u odemetakip sh -c 'rm -f odeme.db-wal odeme.db-shm && tar -xzf backups/odeme-20261108-030000-haftalik.tar.gz'
 sudo systemctl start odemetakip
 ```
 
-> Yedekler yalnızca veritabanını içerir; dekont dosyaları `uploads/` klasöründedir.
+> `tar -xzf` hem `odeme.db` dosyasını hem `uploads/` klasörünü yerine koyar. Eski sürümden kalan `.db.gz` yedekler için:
+> `gunzip -c backups/<dosya>.db.gz > odeme.db`
 
 ---
 
@@ -215,6 +222,7 @@ Ayarlar → SMS / mesaj taslakları bölümünden düzenlenir. Kullanılabilen a
 | `{ogrenci}` | Ali |
 | `{ders_listesi}` | `2 saat online(2x1000)` ve alt satırda `1 saat yüz yüze(1x1250)` |
 | `{tutar}` | 3.250 TL |
+| `{onceki_bakiye}` | Önceki dönemden kalan: 250 TL (yoksa boş; `{ders_listesi}` içinde de otomatik yer alır) |
 | `{ders_sayisi}` | 3 |
 | `{ders_detay}` | 2 saat online + 1 saat yüz yüze |
 | `{son_odeme}` | 5 Kasım 2026 |
@@ -242,6 +250,28 @@ Teşekkür ederim🙏
 - Öğrenciye özel komisyon tanımlıysa o, değilse Ayarlar'daki varsayılan kullanılır.
 - Komisyon ödeme **tamamlandığında** hesaplanır ve kayda yazılır; ayar sonradan değişse de eski kayıtlar değişmez. Tamamlarken tutar elle de düzeltilebilir.
 - Ödeme oluşturulurken o anki saat ücretleri de kaydedilir; tarife değişse de eski ödemelerin tutarı ve mesajı bozulmaz.
+- Kısmi ödemede komisyon **ödenen tutar** üzerinden hesaplanır; kalan tutar sonradan ödendiğinde onun komisyonu da eklenir.
+
+---
+
+## Telegram bildirimi
+
+1. Telegram'da **@BotFather** → `/newbot` ile bir bot oluşturun, verilen anahtarı (token) kopyalayın.
+2. Ayarlar → Telegram bildirimi bölümüne anahtarı yapıştırıp kaydedin.
+3. Botunuza Telegram'dan `/start` yazın, sonra **Chat ID'yi otomatik bul** butonuna basın.
+4. **Test mesajı gönder** ile deneyin, **Günlük bildirimi aç** kutusunu işaretleyin.
+
+Bildirim her gün 09:00'da `odemetakip-notify.timer` ile gönderilir; elle denemek için: `python manage.py notify --force`.
+
+---
+
+## Arama motorları ve yapay zekâ botları
+
+- `/robots.txt` tüm botlara `Disallow: /` döner; GPTBot, ClaudeBot, Google-Extended, PerplexityBot, CCBot gibi
+  bilinen yapay zekâ tarayıcıları ayrıca adıyla engellenir.
+- Her yanıtta `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai`, her sayfada `noindex` meta etiketi vardır.
+- Giriş sayfası dışındaki tüm içerik zaten oturum ister; botlar içeriği göremez.
+- Cloudflare kullanıyorsanız ek olarak *Security → Bots → Block AI Scrapers and Crawlers* seçeneğini açabilirsiniz.
 
 ---
 
@@ -269,6 +299,10 @@ app/
   commission.py    Komisyon sayfası, asistana yapılan ödemeler
   schedule.py      Haftalık program ve dolu saatler (JSON API)
   notes.py         Ortak notlar
+  reports.py       Aylık raporlar, CSV dışa aktarma
+  audit.py         İşlem geçmişi kaydı
+  notify.py        Telegram bildirimleri
+  public.py        robots.txt, PWA manifest ve service worker
   settings.py      Ayarlar, taslaklar, kullanıcılar, yedekler
   backup.py        Yedek alma ve 100 MB sınırı
   utils.py         Para/tarih biçimleri, komisyon hesabı
@@ -289,7 +323,8 @@ wsgi.py            gunicorn giriş noktası
 |---|---|
 | `python manage.py create-user <ad> [--name "Ad Soyad"]` | Yeni kullanıcı (şifre sorar) |
 | `python manage.py set-password <ad>` | Şifre sıfırla |
-| `python manage.py backup` | Elle yedek al |
+| `python manage.py backup` | Elle yedek al (veritabanı + dekontlar) |
+| `python manage.py notify [--force]` | Telegram günlük özetini şimdi gönder |
 | `python manage.py run [--port 5000]` | Geliştirme sunucusu |
 
 Sunucuda komutları `odemetakip` kullanıcısıyla çalıştırın:
@@ -303,4 +338,4 @@ Sunucuda komutları `odemetakip` kullanıcısıyla çalıştırın:
 python -m unittest discover tests
 ```
 
-Testler geçici bir veritabanıyla giriş, veli/öğrenci, ödeme, küsuratlı saat, mesaj, dekont, komisyon, notlar, program, dolu saatler ve yedekleme akışlarını uçtan uca dener.
+Testler geçici bir veritabanıyla giriş, veli/öğrenci, ödeme, küsuratlı saat, kısmi ödeme ve veli bakiyesi, mesaj, dekont, komisyon, notlar, program, dolu saatler, işlem geçmişi, raporlar, Telegram, robots/PWA ve yedekleme akışlarını uçtan uca dener.

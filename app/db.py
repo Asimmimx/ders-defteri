@@ -10,6 +10,9 @@ DEFAULT_SETTINGS = {
     "schedule_end_hour": "22",
     "slot_minutes": "60",
     "backup_limit_mb": "100",
+    "telegram_enabled": "0",
+    "telegram_token": "",
+    "telegram_chat_id": "",
 }
 
 PAYMENT_TEMPLATE = (
@@ -80,6 +83,8 @@ def _migrate(conn):
                  online_unit = (SELECT online_price FROM students s WHERE s.id = payments.student_id),
                  inperson_unit = (SELECT inperson_price FROM students s WHERE s.id = payments.student_id)"""
         )
+    if "carry_in" not in cols:
+        conn.execute("ALTER TABLE payments ADD COLUMN carry_in REAL NOT NULL DEFAULT 0")
     conn.execute(
         "UPDATE message_templates SET name = ?, body = ? WHERE body = ?",
         ("Ödeme bilgisi", PAYMENT_TEMPLATE, OLD_DEFAULT_BODY),

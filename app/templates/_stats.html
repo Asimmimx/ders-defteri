@@ -2,7 +2,7 @@
   <a class="stat" href="{{ url_for('payments.index', durum='pending') }}" style="text-decoration:none;color:inherit">
     <div class="label">Bekleyen ödemeler</div>
     <div class="value">{{ stats.pending.s | money }}</div>
-    <div class="sub">{{ stats.pending.c }} kayıt</div>
+    <div class="sub">{{ stats.pending.c }} kayıt{% if stats.carried %} · +{{ stats.carried | money }} veli bakiyesi{% endif %}</div>
   </a>
   <a class="stat" href="{{ url_for('payments.index', durum='overdue') }}" style="text-decoration:none;color:inherit">
     <div class="label">Geciken</div>

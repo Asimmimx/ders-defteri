@@ -2,13 +2,27 @@ import re
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
+from .audit import log
 from .db import get_db, get_settings
-from .utils import commission_label, parse_money, today_iso
+from .utils import commission_label, money, parse_money, today_iso
 
 bp = Blueprint("main", __name__)
 
 PALETTE = ["#4f7cff", "#f2994a", "#27ae60", "#eb5757", "#9b51e0", "#2d9cdb",
            "#f2c94c", "#e056a0", "#16a085", "#8d6e63", "#607d8b", "#ff7043"]
+
+
+# Velinin bakiyesi: tamamlanan ödemelerdeki eksik (+) / fazla (-) tutarlar,
+# eksi sonraki ödemelere aktarılmış olanlar. Pozitif = veli borçlu, negatif = velinin alacağı var.
+BALANCE_SQL = """(SELECT COALESCE(SUM(CASE WHEN bp.status = 'paid' THEN bp.amount - COALESCE(bp.paid_amount, 0) ELSE 0 END), 0)
+     - COALESCE(SUM(CASE WHEN bp.status != 'cancelled' THEN bp.carry_in ELSE 0 END), 0)
+     FROM payments bp JOIN students bs ON bs.id = bp.student_id WHERE bs.parent_id = {parent})"""
+
+
+def parent_balance(db, parent_id):
+    v = db.execute(f"SELECT {BALANCE_SQL.format(parent='?')}", (parent_id,)).fetchone()[0] or 0
+    v = round(v, 2)
+    return 0.0 if abs(v) < 0.005 else v
 
 
 def commission_balance(db):
@@ -37,8 +51,11 @@ def summary_stats(db):
         (month,),
     ).fetchone()[0]
     _, _, balance = commission_balance(db)
+    carried = db.execute(
+        f"SELECT COALESCE(SUM(b), 0) FROM (SELECT {BALANCE_SQL.format(parent='pa.id')} b FROM parents pa) WHERE b > 0.005"
+    ).fetchone()[0]
     return dict(pending=pending, overdue=overdue, collected=collected,
-                month_commission=month_commission, balance=balance)
+                month_commission=month_commission, balance=balance, carried=round(carried, 2))
 
 
 @bp.route("/")
@@ -81,8 +98,9 @@ def parents():
     sql = """SELECT pa.*,
                (SELECT GROUP_CONCAT(name, ', ') FROM students s WHERE s.parent_id = pa.id) children,
                (SELECT COALESCE(SUM(p.amount), 0) FROM payments p JOIN students s ON s.id = p.student_id
-                  WHERE s.parent_id = pa.id AND p.status = 'pending') pending_total
-             FROM parents pa WHERE 1 = 1"""
+                  WHERE s.parent_id = pa.id AND p.status = 'pending') pending_total,
+               {balance} balance
+             FROM parents pa WHERE 1 = 1""".format(balance=BALANCE_SQL.format(parent="pa.id"))
     args = []
     if show == "aktif":
         sql += " AND pa.active = 1"
@@ -119,6 +137,7 @@ def parent_new():
         if data:
             db = get_db()
             cur = db.execute("INSERT INTO parents(name, phone, notes, active) VALUES (?, ?, ?, ?)", data)
+            log("Veli eklendi", data[0], "parent", cur.lastrowid)
             db.commit()
             flash(f"{data[0]} eklendi. Şimdi çocuğunu ekleyebilirsiniz.", "success")
             return redirect(url_for("main.student_new", parent_id=cur.lastrowid))
@@ -152,7 +171,7 @@ def parent_detail(pid):
     return render_template(
         "parent_detail.html", parent=parent, students=students, payments=payments,
         pending_total=pending_total, paid_total=paid_total, default_label=default_label,
-        commission_label=commission_label, today=today_iso(),
+        commission_label=commission_label, today=today_iso(), balance=parent_balance(db, pid),
     )
 
 
@@ -164,6 +183,7 @@ def parent_edit(pid):
         if data:
             db = get_db()
             db.execute("UPDATE parents SET name = ?, phone = ?, notes = ?, active = ? WHERE id = ?", (*data, pid))
+            log("Veli düzenlendi", data[0] + ("" if data[3] else " (pasif)"), "parent", pid)
             db.commit()
             flash("Veli bilgileri güncellendi.", "success")
             return redirect(url_for("main.parent_detail", pid=pid))
@@ -181,6 +201,7 @@ def parent_delete(pid):
         flash("Bu velinin ödeme kayıtları var; silmek yerine 'Pasif' yapın (kayıtlar ve komisyon geçmişi korunur).", "error")
         return redirect(url_for("main.parent_detail", pid=pid))
     db.execute("DELETE FROM parents WHERE id = ?", (pid,))
+    log("Veli silindi", parent["name"], "parent", pid)
     db.commit()
     flash(f"{parent['name']} silindi.", "success")
     return redirect(url_for("main.parents"))
@@ -228,6 +249,8 @@ def student_new(parent_id):
                    :commission_type, :commission_value, :notes, :active)""",
                 dict(data, parent_id=parent_id),
             )
+            log("Öğrenci eklendi", f"{data['name']} ({parent['name']}) — online {money(data['online_price'])}, "
+                f"yüz yüze {money(data['inperson_price'])}", "student")
             db.commit()
             flash(f"{data['name']} eklendi.", "success")
             return redirect(url_for("main.parent_detail", pid=parent_id))
@@ -253,6 +276,13 @@ def student_edit(sid):
                    commission_value = :commission_value, notes = :notes, active = :active WHERE id = :id""",
                 dict(data, id=sid),
             )
+            changes = []
+            for key, label in (("online_price", "online"), ("inperson_price", "yüz yüze")):
+                if abs((student[key] or 0) - data[key]) > 0.005:
+                    changes.append(f"{label} {money(student[key])} → {money(data[key])}")
+            if not data["active"] and student["active"]:
+                changes.append("pasif yapıldı")
+            log("Öğrenci düzenlendi", data["name"] + (": " + ", ".join(changes) if changes else ""), "student", sid)
             db.commit()
             flash("Öğrenci güncellendi.", "success")
             return redirect(url_for("main.parent_detail", pid=parent["id"]))
@@ -270,6 +300,38 @@ def student_delete(sid):
         flash("Bu öğrencinin ödeme kayıtları var; silmek yerine 'Pasif' yapın.", "error")
         return redirect(url_for("main.parent_detail", pid=student["parent_id"]))
     db.execute("DELETE FROM students WHERE id = ?", (sid,))
+    log("Öğrenci silindi", student["name"], "student", sid)
     db.commit()
     flash(f"{student['name']} silindi.", "success")
     return redirect(url_for("main.parent_detail", pid=student["parent_id"]))
+
+
+@bp.route("/daha")
+def more():
+    return render_template("more.html")
+
+
+@bp.route("/veliler/<int:pid>/dokum")
+def parent_statement(pid):
+    """Velinin hesap dökümü (yazdırılabilir / PDF olarak kaydedilebilir)."""
+    db = get_db()
+    parent = _get_parent(pid)
+    start = request.args.get("baslangic", "")
+    end = request.args.get("bitis", "")
+    sql = """SELECT p.*, s.name student_name FROM payments p JOIN students s ON s.id = p.student_id
+             WHERE s.parent_id = ? AND p.status != 'cancelled'"""
+    args = [pid]
+    if start:
+        sql += " AND COALESCE(p.paid_at, p.due_date, substr(p.created_at, 1, 10)) >= ?"
+        args.append(start)
+    if end:
+        sql += " AND COALESCE(p.paid_at, p.due_date, substr(p.created_at, 1, 10)) <= ?"
+        args.append(end)
+    sql += " ORDER BY COALESCE(p.paid_at, p.due_date, p.created_at), p.id"
+    rows = db.execute(sql, args).fetchall()
+    total_amount = sum(r["amount"] for r in rows)
+    total_paid = sum(r["paid_amount"] or 0 for r in rows if r["status"] == "paid")
+    pending = sum(r["amount"] for r in rows if r["status"] == "pending")
+    return render_template("statement.html", parent=parent, rows=rows, start=start, end=end,
+                           total_amount=total_amount, total_paid=total_paid, pending=pending,
+                           balance=parent_balance(db, pid), today=today_iso())
