@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>Haftalık program</h1>
-    <div class="muted small">Öğrenciyi veya “Dolu” kutusunu soldan sürükleyip saate bırakın. Taşımak için sürükleyin, silmek için çöpe atın, düzenlemek için tıklayın.</div>
+    <div class="muted small">Öğrenciyi veya “Dolu” kutusunu soldan sürükleyip saate bırakın. Taşımak için sürükleyin, düzenlemek için tıklayın, <strong>silmek için sağ tıklayın</strong> (telefonda uzun basın) ya da çöpe atın.</div>
   </div>
   <div class="form-actions">
     <button class="btn primary" id="export-png">{{ icon('image') }} PNG indir</button>
@@ -112,5 +112,5 @@
 {% block scripts %}
 <script>window.DAYS = {{ DAYS | tojson }};</script>
 <script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/schedule.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=5"></script>
 {% endblock %}

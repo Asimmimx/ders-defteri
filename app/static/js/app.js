@@ -6,13 +6,26 @@
 
   window.App = {
     csrf: CSRF,
-    toast(msg) {
+    // action: { label, fn } verilirse bildirimde tıklanabilir buton çıkar (ör. Geri al)
+    toast(msg, action) {
       const t = $("#toast");
       if (!t) return;
       t.textContent = msg;
+      t.classList.toggle("has-action", !!action);
+      if (action) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "toast-action";
+        b.textContent = action.label;
+        b.addEventListener("click", () => {
+          t.classList.remove("show");
+          action.fn();
+        }, { once: true });
+        t.appendChild(b);
+      }
       t.classList.add("show");
       clearTimeout(t._timer);
-      t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+      t._timer = setTimeout(() => t.classList.remove("show"), action ? 5000 : 2200);
     },
     async api(url, method = "GET", body) {
       const res = await fetch(url, {

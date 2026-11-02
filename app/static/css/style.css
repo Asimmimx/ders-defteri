@@ -291,3 +291,7 @@ h1 svg, h2 svg, h3 svg { width: 1.05em; height: 1.05em; vertical-align: -0.15em;
 .busy { border-radius: 7px; padding: 4px 7px; font-size: .8rem; font-weight: 600; cursor: grab; user-select: none; line-height: 1.25; touch-action: none; }
 .busy .ltype { display: block; font-weight: 400; font-size: .7rem; opacity: .9; }
 .sched-grid .cell.busy-cell { background: rgba(107, 116, 137, .08); }
+
+/* Bildirimde "Geri al" butonu */
+.toast.has-action.show { pointer-events: auto; display: flex; align-items: center; gap: 14px; }
+.toast-action { background: none; border: none; color: var(--primary-soft); font: inherit; font-weight: 700; cursor: pointer; padding: 0; text-decoration: underline; }

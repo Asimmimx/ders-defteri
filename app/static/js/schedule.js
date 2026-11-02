@@ -112,11 +112,15 @@
   }
 
   async function deleteBusy(id) {
+    const b = busy.find((x) => x.id === id);
     busy = busy.filter((x) => x.id !== id);
     render();
     try {
       await App.api(`/api/dolu/${id}`, "DELETE");
-      App.toast("Dolu işareti kaldırıldı");
+      App.toast("Dolu işareti kaldırıldı", b && {
+        label: "Geri al",
+        fn: () => createBusy(b.day, b.start_min, 1, b.label),
+      });
     } catch (e) { App.toast(e.message); load(); }
   }
 
@@ -176,13 +180,36 @@
   }
 
   async function deleteSlot(id) {
+    const s = slots.find((x) => x.id === id);
     slots = slots.filter((x) => x.id !== id);
     render();
     try {
       await App.api(`/api/program/${id}`, "DELETE");
-      App.toast("Ders silindi");
+      App.toast(s ? `${s.student_name} dersi silindi` : "Ders silindi", s && {
+        label: "Geri al",
+        fn: async () => {
+          try {
+            await App.api("/api/program", "POST", {
+              student_id: s.student_id, day: s.day, start_min: s.start_min,
+              lesson_type: s.lesson_type, note: s.note || "",
+            });
+            load();
+          } catch (e) { App.toast(e.message); }
+        },
+      });
     } catch (e) { App.toast(e.message); load(); }
   }
+
+  // Sağ tık (telefonda uzun basma): dersi / dolu işaretini hemen sil
+  grid.addEventListener("contextmenu", (e) => {
+    const lesson = e.target.closest(".lesson");
+    const b = e.target.closest(".busy");
+    if (!lesson && !b) return;
+    e.preventDefault();
+    if (drag) onPointerCancel();
+    if (lesson) deleteSlot(parseInt(lesson.dataset.id, 10));
+    else deleteBusy(parseInt(b.dataset.busyId, 10));
+  });
 
   function openDialog(id) {
     const s = slots.find((x) => x.id === id);
