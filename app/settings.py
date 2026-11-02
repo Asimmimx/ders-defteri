@@ -1,11 +1,12 @@
 import re
+from datetime import date
 from pathlib import Path
 
 from flask import (Blueprint, abort, current_app, flash, g, redirect, render_template,
                    request, send_from_directory, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from . import backup, notify
+from . import backup, holidays, notify
 from .audit import log
 from .db import get_db, get_settings, set_setting
 from .utils import commission_label, parse_int, parse_money
@@ -25,6 +26,8 @@ def index():
         backups=backup.list_backups(current_app.config["BACKUP_DIR"]),
         backup_total=sum(b["size"] for b in backup.list_backups(current_app.config["BACKUP_DIR"])),
         token_hint=("…" + s["telegram_token"][-4:]) if s["telegram_token"] else "",
+        special_days=db.execute("SELECT * FROM special_days ORDER BY start_date DESC LIMIT 100").fetchall(),
+        upcoming=holidays.upcoming(db, date.today(), 120),
     )
 
 
@@ -254,3 +257,44 @@ def audit():
     users = db.execute("SELECT id, username, full_name FROM users ORDER BY id").fetchall()
     return render_template("audit.html", rows=rows, q=q, uid=uid, page=page,
                            pages=max((total + per - 1) // per, 1), total=total, users=users)
+
+
+# ------------------------------------------------------------ Özel günler
+
+@bp.route("/ayarlar/ozel-gun", methods=["POST"])
+def add_special_day():
+    name = request.form.get("name", "").strip()[:80]
+    start = request.form.get("start_date", "")
+    end = request.form.get("end_date", "") or start
+    try:
+        d1, d2 = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        flash("Geçerli bir tarih seçin.", "error")
+        return redirect(url_for("settings.index") + "#ozel-gunler")
+    if not name:
+        flash("Özel günün adını yazın.", "error")
+        return redirect(url_for("settings.index") + "#ozel-gunler")
+    if d2 < d1:
+        d1, d2 = d2, d1
+    if (d2 - d1).days > 366:
+        flash("En fazla 1 yıllık aralık girilebilir.", "error")
+        return redirect(url_for("settings.index") + "#ozel-gunler")
+    db = get_db()
+    cur = db.execute("INSERT INTO special_days(name, start_date, end_date) VALUES (?, ?, ?)",
+                     (name, d1.isoformat(), d2.isoformat()))
+    log("Özel gün eklendi", f"{name}: {d1.isoformat()} – {d2.isoformat()}", "special_day", cur.lastrowid)
+    db.commit()
+    flash(f"{name} eklendi; programda görünecek.", "success")
+    return redirect(url_for("settings.index") + "#ozel-gunler")
+
+
+@bp.route("/ayarlar/ozel-gun/<int:sid>/sil", methods=["POST"])
+def delete_special_day(sid):
+    db = get_db()
+    row = db.execute("SELECT * FROM special_days WHERE id = ?", (sid,)).fetchone()
+    db.execute("DELETE FROM special_days WHERE id = ?", (sid,))
+    if row:
+        log("Özel gün silindi", f"{row['name']}: {row['start_date']} – {row['end_date']}", "special_day", sid)
+    db.commit()
+    flash("Özel gün silindi.", "success")
+    return redirect(url_for("settings.index") + "#ozel-gunler")

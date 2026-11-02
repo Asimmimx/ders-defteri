@@ -57,6 +57,47 @@
   </div>
 </div>
 
+<div class="card" id="ozel-gunler">
+  <h2>Tatiller ve özel günler</h2>
+  <p class="small muted">Resmi tatiller (bayramlar dahil) programda otomatik görünür. Yarıyıl tatili, ara tatil, sınav haftası gibi günleri buradan ekleyebilirsiniz.</p>
+  <div class="grid grid-2">
+    <div>
+      <h3>Özel gün ekle</h3>
+      <form method="post" action="{{ url_for('settings.add_special_day') }}">
+        {{ csrf() }}
+        <div class="field"><label for="sd-name">Ad</label>
+          <input type="text" id="sd-name" name="name" maxlength="80" required placeholder="ör. Yarıyıl tatili"></div>
+        <div class="row">
+          <div class="field"><label for="sd-start">Başlangıç</label><input type="date" id="sd-start" name="start_date" required></div>
+          <div class="field"><label for="sd-end">Bitiş</label><input type="date" id="sd-end" name="end_date"><div class="hint">Tek gün için boş bırakın.</div></div>
+        </div>
+        <button class="btn primary">Ekle</button>
+      </form>
+      {% if special_days %}
+      <h3 style="margin-top:16px">Eklenen özel günler</h3>
+      {% for d in special_days %}
+        <div class="row-between">
+          <span><strong>{{ d.name }}</strong><br><span class="small muted">{{ d.start_date | tarih }}{% if d.end_date != d.start_date %} – {{ d.end_date | tarih }}{% endif %}</span></span>
+          <form method="post" action="{{ url_for('settings.delete_special_day', sid=d.id) }}" class="inline" data-confirm="{{ d.name }} silinsin mi?">
+            {{ csrf() }}<button class="link-btn danger small">Sil</button></form>
+        </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    <div>
+      <h3>Yaklaşan günler (4 ay)</h3>
+      {% for d, items in upcoming %}
+        <div class="row-between">
+          <span class="small nowrap">{{ d.isoformat() | tarih }} <span class="muted">{{ DAYS[d.weekday()] }}</span></span>
+          <span class="small" style="text-align:right">{% for it in items %}<span class="badge {{ 'overdue' if it.kind == 'resmi' else 'info' }}">{{ it.name }}{{ ' (yarım gün)' if it.half }}</span> {% endfor %}</span>
+        </div>
+      {% else %}
+        <p class="empty">Yaklaşan tatil yok.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
 <div class="card" id="taslaklar">
   <h2>SMS / mesaj taslakları</h2>
   <p class="small muted">Kullanılabilir alanlar: <code>{ders_listesi}</code> (her ders türü ayrı satır, ör. "2 saat online(2x1000)") <code>{veli}</code> <code>{ogrenci}</code> <code>{tutar}</code> <code>{ders_sayisi}</code> <code>{ders_detay}</code> (ör. "2 saat online + 1 saat yüz yüze") <code>{son_odeme}</code> <code>{aciklama}</code></p>

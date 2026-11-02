@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date, timedelta
 from pathlib import Path
 
 from flask import current_app, g
@@ -85,6 +86,14 @@ def _migrate(conn):
         )
     if "carry_in" not in cols:
         conn.execute("ALTER TABLE payments ADD COLUMN carry_in REAL NOT NULL DEFAULT 0")
+    # Haftalık program: eski (haftasız) kayıtlar geçiş anındaki haftaya atanır
+    monday = (date.today() - timedelta(days=date.today().weekday())).isoformat()
+    for table in ("schedule_slots", "busy_blocks"):
+        tcols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if "week_start" not in tcols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN week_start TEXT")
+        conn.execute(f"UPDATE {table} SET week_start = ? WHERE week_start IS NULL", (monday,))
+        conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_week ON {table}(week_start)")
     conn.execute(
         "UPDATE message_templates SET name = ?, body = ? WHERE body = ?",
         ("Ödeme bilgisi", PAYMENT_TEMPLATE, OLD_DEFAULT_BODY),

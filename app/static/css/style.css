@@ -309,3 +309,30 @@ input[type=month] { padding: 7px 10px; border: 1px solid var(--line); border-rad
 .more-list a:last-child { border-bottom: none; }
 .more-list a:hover { background: var(--bg); text-decoration: none; }
 .more-list svg { width: 20px; height: 20px; color: var(--primary); }
+
+/* Hafta seçici ve tatiller */
+.week-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; background: var(--card);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+.week-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; padding: 0 4px; }
+.week-pick input { padding: 6px 8px; width: auto; }
+.week-actions { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 860px) { .week-actions { margin-left: 0; } }
+.info-flash { background: var(--primary-soft); color: var(--primary); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sched-grid .hcell .hdate { display: block; font-weight: 600; font-size: .78rem; color: var(--muted); }
+.sched-grid .hcell.today { background: var(--primary-soft); }
+.sched-grid .hcell.today .hdate { color: var(--primary); }
+.sched-grid .hcell .hday-tag { display: block; margin-top: 3px; font-size: .68rem; font-weight: 700; line-height: 1.2;
+  border-radius: 6px; padding: 2px 4px; }
+.hday-tag.resmi { background: var(--danger-soft); color: var(--danger); }
+.hday-tag.ozel { background: var(--primary-soft); color: var(--primary); }
+.sched-grid .hcell.holiday { background: var(--danger-soft); }
+.sched-grid .cell.holiday-cell { background-image: repeating-linear-gradient(135deg, rgba(214,64,74,.07) 0 8px, transparent 8px 16px); }
+.sched-grid .cell.half-cell { background-image: repeating-linear-gradient(135deg, rgba(214,64,74,.04) 0 8px, transparent 8px 16px); }
+.sched-grid .cell.special-cell { background-color: rgba(61,107,255,.05); }
+#schedule-export.exporting .sched-grid .hcell.holiday { background: #fde8ea; }
+#schedule-export.exporting .hday-tag.resmi { background: #fde8ea; color: #d6404a; }
+#schedule-export.exporting .hday-tag.ozel { background: #e8eeff; color: #3d6bff; }
+#schedule-export.exporting .sched-grid .hcell.today { background: #f4f6fb; }
+
+/* hidden özniteliği her zaman gizlesin */
+[hidden] { display: none !important; }

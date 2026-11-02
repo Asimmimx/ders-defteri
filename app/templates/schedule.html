@@ -4,12 +4,31 @@
 <div class="page-head">
   <div>
     <h1>Haftalık program</h1>
-    <div class="muted small">Öğrenciyi veya “Dolu” kutusunu soldan sürükleyip saate bırakın. Taşımak için sürükleyin, düzenlemek için tıklayın, <strong>silmek için sağ tıklayın</strong> (telefonda uzun basın) ya da çöpe atın.</div>
+    <div class="muted small">Her haftanın programı ayrıdır. Öğrenciyi veya “Dolu” kutusunu soldan sürükleyip saate bırakın. Taşımak için sürükleyin, düzenlemek için tıklayın, <strong>silmek için sağ tıklayın</strong> (telefonda uzun basın) ya da çöpe atın.</div>
   </div>
   <div class="form-actions">
     <button class="btn primary" id="export-png">{{ icon('image') }} PNG indir</button>
   </div>
 </div>
+
+<div class="week-bar">
+  <a class="btn sm" href="?hafta={{ prev }}" title="Önceki hafta">←</a>
+  <div class="week-title">
+    <strong>{{ label }}</strong>
+    {% if is_this_week %}<span class="badge info">Bu hafta</span>{% endif %}
+  </div>
+  <a class="btn sm" href="?hafta={{ next }}" title="Sonraki hafta">→</a>
+  {% if not is_this_week %}<a class="btn sm" href="?hafta={{ this_week }}">Bu haftaya dön</a>{% endif %}
+  <form method="get" class="inline week-pick">
+    <input type="date" name="hafta" value="{{ monday }}" aria-label="Tarihe git" onchange="this.form.submit()">
+  </form>
+  <span class="week-actions">
+    <button type="button" class="btn sm" id="copy-prev">Geçen haftayı kopyala</button>
+    <button type="button" class="btn sm danger" id="clear-week">Haftayı temizle</button>
+    <a class="btn sm" href="{{ url_for('settings.index') }}#ozel-gunler">Özel günler</a>
+  </span>
+</div>
+<div class="flash info-flash" id="empty-week" hidden></div>
 
 <div class="sched-layout">
   <div class="card no-print" style="margin:0">
@@ -51,8 +70,8 @@
   <div class="card" style="margin:0;padding:0;overflow:hidden">
     <div class="sched-scroll">
       <div id="schedule-export">
-        <div class="export-title">Haftalık Ders Programı</div>
-        <div class="sched-grid" id="grid"
+        <div class="export-title">Haftalık Ders Programı · {{ label }}</div>
+        <div class="sched-grid" id="grid" data-week="{{ monday }}"
              data-start="{{ start }}" data-end="{{ end }}" data-slot="{{ slot }}"
              style="grid-template-columns: 62px repeat(7, minmax(92px, 1fr));"></div>
         <div class="legend" id="legend"></div>
@@ -112,5 +131,5 @@
 {% block scripts %}
 <script>window.DAYS = {{ DAYS | tojson }};</script>
 <script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/schedule.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=7"></script>
 {% endblock %}

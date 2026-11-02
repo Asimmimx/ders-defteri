@@ -6,6 +6,7 @@
   const START = parseInt(grid.dataset.start, 10);
   const END = parseInt(grid.dataset.end, 10);
   const SLOT = parseInt(grid.dataset.slot, 10);
+  const WEEK = grid.dataset.week;
   const DAYS = window.DAYS;
   const SHORT = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
   const times = [];
@@ -19,6 +20,10 @@
   const busyDialog = document.getElementById("busy-dialog");
   let slots = [];
   let busy = [];
+  let dates = [];      // [{iso, day, month}] pazartesiden pazara
+  let dayInfo = {};    // {"YYYY-MM-DD": [{name, kind: "resmi"|"ozel", half}]}
+  let todayIso = "";
+  let prevCount = 0;
   let picked = null; // dokunmatik mod: seçili öğrenci / dolu kutusu
 
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -35,15 +40,25 @@
       ]).size;
       const pct = Math.round((filled / times.length) * 100);
       const free = filled === 0;
-      html += `<div class="hcell ${free ? "free" : ""}">${isMobile ? SHORT[d] : DAYS[d]}
-        <span class="occ">${free ? "Müsait" : `${filled}/${times.length} dolu · %${pct}`}</span></div>`;
+      const dt = dates[d];
+      const info = dt ? (dayInfo[dt.iso] || []) : [];
+      const official = info.find((x) => x.kind === "resmi" && !x.half);
+      const cls = [free ? "free" : "", dt && dt.iso === todayIso ? "today" : "", official ? "holiday" : ""].join(" ");
+      const dateTxt = dt ? `${dt.day} ${isMobile ? dt.month.slice(0, 3) : dt.month}` : "";
+      const tags = info.map((x) => `<span class="hday-tag ${x.kind}">${esc(x.name)}${x.half ? " (yarım gün)" : ""}</span>`).join("");
+      html += `<div class="hcell ${cls}">${isMobile ? SHORT[d] : DAYS[d]}<span class="hdate">${dateTxt}</span>${tags}
+        <span class="occ">${free ? (official ? "Tatil" : "Müsait") : `${filled}/${times.length} dolu · %${pct}`}</span></div>`;
     }
     for (const t of times) {
       html += `<div class="tcell">${hhmm(t)}</div>`;
       for (let d = 0; d < 7; d++) {
         const here = slots.filter((s) => s.day === d && s.start_min === t);
         const b = busy.find((x) => x.day === d && x.start_min === t);
-        const cls = b ? "busy-cell" : here.length ? "" : "empty-cell";
+        const info = dates[d] ? (dayInfo[dates[d].iso] || []) : [];
+        const dayCls = info.some((x) => x.kind === "resmi" && !x.half) ? " holiday-cell"
+          : info.some((x) => x.kind === "resmi") ? " half-cell"
+          : info.length ? " special-cell" : "";
+        const cls = (b ? "busy-cell" : here.length ? "" : "empty-cell") + dayCls;
         html += `<div class="cell ${cls}" data-day="${d}" data-min="${t}">`;
         if (b) {
           html += `<div class="busy" data-busy-id="${b.id}">Dolu${b.label ? `<span class="ltype">${esc(b.label)}</span>` : ""}</div>`;
@@ -72,20 +87,28 @@
     const cap = times.length * 7;
     const onlineCount = slots.filter((s) => s.lesson_type === "online").length;
     const busyHours = Math.round((busy.length * SLOT / 60) * 100) / 100;
+    const holidays = dates.filter((dt) => (dayInfo[dt.iso] || []).length)
+      .map((dt) => `${dt.day} ${dt.month.slice(0, 3)}: ${(dayInfo[dt.iso] || []).map((x) => x.name).join(", ")}`);
     let html = `<span class="muted">Toplam ${total} ders (${total - onlineCount} yüz yüze, ${onlineCount} online) · Haftalık doluluk %${Math.round((filled / cap) * 100)}</span>`;
     if (busy.length) html += `<span><span class="dot busy-item"></span>Dolu (${String(busyHours).replace(".", ",")} saat)</span>`;
     for (const e of by.values()) {
       html += `<span><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.name)} (${e.count})</span>`;
     }
+    if (holidays.length) html += `<span class="legend-holidays">📅 ${esc(holidays.join(" · "))}</span>`;
     legend.innerHTML = html;
   }
 
   async function load() {
     try {
-      const data = await App.api("/api/program");
+      const data = await App.api(`/api/program?hafta=${encodeURIComponent(WEEK)}`);
       slots = data.slots;
       busy = data.busy || [];
+      dates = data.dates || [];
+      dayInfo = data.days || {};
+      todayIso = data.today;
+      prevCount = data.prev_count || 0;
       render();
+      renderEmptyBanner();
     } catch (e) {
       App.toast(e.message);
     }
@@ -96,7 +119,7 @@
 
   async function createBusy(day, min, count, label) {
     try {
-      const r = await App.api("/api/dolu", "POST", { day, start_min: min, count, label });
+      const r = await App.api("/api/dolu", "POST", { week: WEEK, day, start_min: min, count, label });
       await load();
       App.toast(r.skipped ? `${r.added} saat dolu işaretlendi (${r.skipped} saat atlandı: ders var veya zaten dolu)` : "Dolu olarak işaretlendi");
     } catch (e) { App.toast(e.message); }
@@ -127,7 +150,7 @@
   function openBusyDialog(id) {
     const b = busy.find((x) => x.id === id);
     if (!b) return;
-    document.getElementById("busy-title").textContent = `Dolu · ${DAYS[b.day]} ${hhmm(b.start_min)}`;
+    document.getElementById("busy-title").textContent = `Dolu · ${dayLabel(b.day)} ${hhmm(b.start_min)}`;
     const label = document.getElementById("busy-dlg-label");
     const extend = document.getElementById("busy-dlg-extend");
     label.value = b.label || "";
@@ -139,7 +162,7 @@
           await App.api(`/api/dolu/${id}`, "PATCH", { label: label.value });
           const n = parseInt(extend.value, 10);
           if (n > 0) {
-            await App.api("/api/dolu", "POST", { day: b.day, start_min: b.start_min + SLOT, count: n, label: label.value })
+            await App.api("/api/dolu", "POST", { week: WEEK, day: b.day, start_min: b.start_min + SLOT, count: n, label: label.value })
               .catch((e) => App.toast(e.message));
           }
           load();
@@ -162,7 +185,10 @@
     if (isBusyAt(day, min)) { App.toast("Bu saat dolu olarak işaretli. Önce dolu işaretini kaldırın."); return; }
     try {
       const type = document.querySelector('input[name="new_type"]:checked')?.value || "inperson";
-      await App.api("/api/program", "POST", { student_id: studentId, day, start_min: min, lesson_type: type });
+      await App.api("/api/program", "POST", { week: WEEK, student_id: studentId, day, start_min: min, lesson_type: type });
+      const info = dates[day] ? (dayInfo[dates[day].iso] || []) : [];
+      const off = info.find((x) => x.kind === "resmi");
+      if (off) { await load(); App.toast(`Dikkat: ${off.name}${off.half ? " (yarım gün)" : ""} gününe ders eklendi`); return; }
       await load();
       App.toast(type === "online" ? "Online ders eklendi" : "Yüz yüze ders eklendi");
     } catch (e) { App.toast(e.message); }
@@ -190,7 +216,7 @@
         fn: async () => {
           try {
             await App.api("/api/program", "POST", {
-              student_id: s.student_id, day: s.day, start_min: s.start_min,
+              week: WEEK, student_id: s.student_id, day: s.day, start_min: s.start_min,
               lesson_type: s.lesson_type, note: s.note || "",
             });
             load();
@@ -214,7 +240,7 @@
   function openDialog(id) {
     const s = slots.find((x) => x.id === id);
     if (!s) return;
-    document.getElementById("dlg-title").textContent = `${s.student_name} · ${DAYS[s.day]} ${hhmm(s.start_min)}`;
+    document.getElementById("dlg-title").textContent = `${s.student_name} · ${dayLabel(s.day)} ${hhmm(s.start_min)}`;
     const typeSel = document.getElementById("dlg-type");
     const note = document.getElementById("dlg-note");
     typeSel.value = s.lesson_type;
@@ -358,7 +384,7 @@
         },
       });
       const a = document.createElement("a");
-      a.download = `haftalik-program-${new Date().toISOString().slice(0, 10)}.png`;
+      a.download = `haftalik-program-${WEEK}.png`;
       a.href = canvas.toDataURL("image/png");
       document.body.appendChild(a);
       a.click();
@@ -371,6 +397,44 @@
       btn.disabled = false;
     }
   });
+
+  function dayLabel(d) {
+    const dt = dates[d];
+    return dt ? `${dt.day} ${dt.month} ${DAYS[d]}` : DAYS[d];
+  }
+
+  const emptyBanner = document.getElementById("empty-week");
+  function renderEmptyBanner() {
+    if (!emptyBanner) return;
+    const empty = !slots.length && !busy.length;
+    emptyBanner.hidden = !(empty && prevCount > 0);
+    if (!emptyBanner.hidden) {
+      emptyBanner.innerHTML = `Bu hafta henüz boş. <button type="button" class="btn sm primary" data-copy-now>Geçen haftayı kopyala (${prevCount} öğe)</button>`;
+      emptyBanner.querySelector("[data-copy-now]").addEventListener("click", copyPrev);
+    }
+  }
+
+  async function copyPrev() {
+    if ((slots.length || busy.length) && !confirm("Geçen haftanın programı bu haftaya eklensin mi? Çakışan saatler atlanır.")) return;
+    try {
+      const r = await App.api("/api/program/kopyala", "POST", { week: WEEK });
+      await load();
+      App.toast(r.skipped ? `${r.added} öğe kopyalandı, ${r.skipped} çakışma atlandı` : `${r.added} öğe kopyalandı`);
+    } catch (e) { App.toast(e.message); }
+  }
+
+  async function clearWeek() {
+    if (!slots.length && !busy.length) { App.toast("Bu hafta zaten boş"); return; }
+    if (!confirm("Bu haftadaki tüm dersler ve dolu saatler silinsin mi?")) return;
+    try {
+      const r = await App.api("/api/program/temizle", "POST", { week: WEEK });
+      await load();
+      App.toast(`${r.lessons} ders ve ${r.busy} dolu saat silindi`);
+    } catch (e) { App.toast(e.message); }
+  }
+
+  document.getElementById("copy-prev")?.addEventListener("click", copyPrev);
+  document.getElementById("clear-week")?.addEventListener("click", clearWeek);
 
   // Ders türü seçimini hatırla
   try {

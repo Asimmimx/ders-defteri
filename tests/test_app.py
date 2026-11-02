@@ -169,27 +169,29 @@ class AppFlowTest(unittest.TestCase):
 
         # Program API
         h = {"X-CSRF-Token": t}
-        r = self.c.post("/api/program", json={"student_id": st["id"], "day": 0, "start_min": 600,
+        from app.schedule import monday_of
+        W = monday_of().isoformat()
+        r = self.c.post("/api/program", json={"week": W, "student_id": st["id"], "day": 0, "start_min": 600,
                                               "lesson_type": "online"}, headers=h)
         self.assertEqual(r.status_code, 201)
         sid = r.get_json()["id"]
         self.assertEqual(self.c.patch(f"/api/program/{sid}", json={"day": 2, "start_min": 660}, headers=h).status_code, 200)
-        self.assertEqual(self.c.post("/api/program", json={"student_id": st["id"], "day": 0, "start_min": 60}, headers=h).status_code, 400)
+        self.assertEqual(self.c.post("/api/program", json={"week": W, "student_id": st["id"], "day": 0, "start_min": 60}, headers=h).status_code, 400)
         slots = self.c.get("/api/program").get_json()["slots"]
         self.assertEqual((slots[0]["day"], slots[0]["start_min"], slots[0]["lesson_type"]), (2, 660, "online"))
         self.assertEqual(self.c.delete(f"/api/program/{sid}", headers=h).status_code, 200)
 
         # Dolu saatler: Salı 09:00'dan 3 saat; 11:00'de ders varsa atlanır
-        r = self.c.post("/api/program", json={"student_id": st["id"], "day": 1, "start_min": 660}, headers=h)
+        r = self.c.post("/api/program", json={"week": W, "student_id": st["id"], "day": 1, "start_min": 660}, headers=h)
         lesson_id = r.get_json()["id"]
-        r = self.c.post("/api/dolu", json={"day": 1, "start_min": 540, "count": 3, "label": "Okul"}, headers=h)
+        r = self.c.post("/api/dolu", json={"week": W, "day": 1, "start_min": 540, "count": 3, "label": "Okul"}, headers=h)
         self.assertEqual(r.status_code, 201)
         self.assertEqual(r.get_json(), {"added": 2, "skipped": 1})
         busy = self.c.get("/api/program").get_json()["busy"]
         self.assertEqual(sorted(b["start_min"] for b in busy), [540, 600])
         self.assertEqual(busy[0]["label"], "Okul")
         # Dolu saate ders eklenemez / taşınamaz
-        self.assertEqual(self.c.post("/api/program", json={"student_id": st["id"], "day": 1, "start_min": 540}, headers=h).status_code, 409)
+        self.assertEqual(self.c.post("/api/program", json={"week": W, "student_id": st["id"], "day": 1, "start_min": 540}, headers=h).status_code, 409)
         self.assertEqual(self.c.patch(f"/api/program/{lesson_id}", json={"day": 1, "start_min": 600}, headers=h).status_code, 409)
         # Dolu blok derse taşınamaz, boş saate taşınır
         bid = busy[0]["id"]

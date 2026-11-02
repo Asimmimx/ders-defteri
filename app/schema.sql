@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS payouts (
 CREATE TABLE IF NOT EXISTS schedule_slots (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id  INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    week_start  TEXT,  -- haftanın pazartesisi (YYYY-MM-DD); her hafta ayrı program
     day         INTEGER NOT NULL CHECK (day BETWEEN 0 AND 6),
     start_min   INTEGER NOT NULL,
     lesson_type TEXT NOT NULL DEFAULT 'inperson' CHECK (lesson_type IN ('online', 'inperson')),
@@ -87,9 +88,19 @@ CREATE TABLE IF NOT EXISTS schedule_slots (
 -- Programda dolu olunan saatler (ders dışı meşguliyet)
 CREATE TABLE IF NOT EXISTS busy_blocks (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    week_start TEXT,
     day       INTEGER NOT NULL CHECK (day BETWEEN 0 AND 6),
     start_min INTEGER NOT NULL,
     label     TEXT NOT NULL DEFAULT ''
+);
+
+-- Kullanıcının eklediği özel günler (yarıyıl tatili, sınav haftası vb.)
+CREATE TABLE IF NOT EXISTS special_days (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
 -- SMS taslakları

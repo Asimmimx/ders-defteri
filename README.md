@@ -40,7 +40,8 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 | 💬 **Hazır mesaj** | Velinin adı, ders satırları ve toplam tutarla dolu mesaj; tek tıkla kopyala, telefonun SMS uygulamasında veya WhatsApp'ta aç. |
 | 🧾 **Dekont** | Ödeme kapatılırken resim veya PDF dekont eklenir; dosyalar yalnızca giriş yapmış kullanıcılara gösterilir. |
 | 💰 **Asistan komisyonu** | Varsayılan olarak yüzde veya saat başı sabit tutar; öğrenciye özel oran tanımlanabilir. Kazanılan, ödenen ve kalan bakiye ayrı sayfada. |
-| 📅 **Haftalık program** | Öğrenciyi sürükleyip saate bırakın; yüz yüze / online seçimi, günlük doluluk oranı, müsait günler. **PNG olarak indir.** |
+| 📅 **Haftalık program** | Tarihli, hafta hafta gezilebilen program; her haftanın programı ayrıdır, "Geçen haftayı kopyala" ile tek tıkla doldurulur. Öğrenciyi sürükleyip saate bırakın; yüz yüze / online seçimi, günlük doluluk oranı, müsait günler. **PNG olarak indir.** |
+| 🎉 **Resmi tatiller ve özel günler** | Ulusal ve dini bayramlar (arifeler yarım gün) programda kırmızı görünür; yarıyıl tatili, sınav haftası gibi günleri tarih aralığıyla kendiniz ekleyin. |
 | ⛔ **Dolu saatler** | Ders dışında meşgul olduğunuz saatleri (okul, iş…) açıklamayla işaretleyin; dolu saate ders eklenemez. |
 | 🖱️ **Hızlı düzenleme** | Programda sağ tıkla (telefonda uzun basarak) sil, 5 saniye içinde "Geri al". |
 | 📝 **Ortak notlar** | Kullanıcılar arasında not paylaşımı; sabitleme ve tamamlandı işareti. |
@@ -66,7 +67,7 @@ Mesaj, ödemedeki ders saatlerinden otomatik oluşur. "Ödeme alındı" formunda
 ![Ödeme detayı](docs/screenshots/odeme-detay.jpg)
 
 ### Haftalık program
-Öğrenciler ve "Dolu" kutusu soldan sürüklenir. Gün başlıklarında doluluk oranı, altta haftalık özet görünür.
+Hafta hafta gezilir; gün başlıklarında tarih, doluluk oranı ve varsa resmi tatil / özel gün yazar. Öğrenciler ve "Dolu" kutusu soldan sürüklenir.
 
 ![Haftalık program](docs/screenshots/haftalik-program.jpg)
 
