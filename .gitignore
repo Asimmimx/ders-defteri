@@ -10,3 +10,7 @@ __pycache__/
 *.db-shm
 .DS_Store
 Thumbs.db
+
+# Kişisel geliştirme notları (Claude Code)
+CLAUDE.md
+.claude/
