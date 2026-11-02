@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>Haftalık program</h1>
-    <div class="muted small">Öğrenciyi soldan sürükleyip saate bırakın. Dersleri sürükleyerek taşıyın, çöpe atarak silin, tıklayarak düzenleyin.</div>
+    <div class="muted small">Öğrenciyi veya “Dolu” kutusunu soldan sürükleyip saate bırakın. Taşımak için sürükleyin, silmek için çöpe atın, düzenlemek için tıklayın.</div>
   </div>
   <div class="form-actions">
     <button class="btn primary" id="export-png">{{ icon('image') }} PNG indir</button>
@@ -27,11 +27,25 @@
         </div>
       {% endfor %}
     </div>
-    <p class="small muted" style="margin-bottom:0">Telefonda: öğrenciye dokunun, sonra boş bir saate dokunun.</p>
-    <div class="trash" id="trash">Silmek için buraya sürükleyin</div>
     {% else %}
     <p class="muted">Aktif öğrenci yok. <a href="{{ url_for('main.parents') }}">Veli ve öğrenci ekleyin →</a></p>
     {% endif %}
+
+    <h3 style="margin-top:16px">Dolu olduğum saatler</h3>
+    <div class="field" style="margin-bottom:8px">
+      <input type="text" id="busy-label" maxlength="60" placeholder="Açıklama (ör. Okul, İş)">
+    </div>
+    <div class="field" style="margin-bottom:8px">
+      <select id="busy-count" aria-label="Süre">
+        {% for n in range(1, 9) %}<option value="{{ n }}">{{ (n * slot / 60) | qty }} saat{{ ' (' ~ n ~ ' blok)' if slot != 60 else '' }}</option>{% endfor %}
+        <option value="48">Gün sonuna kadar</option>
+      </select>
+    </div>
+    <div id="busy-palette">
+      <div class="pal-item busy-item" data-busy="1" data-name="Dolu">Dolu <small>· sürükleyin</small></div>
+    </div>
+    <p class="small muted" style="margin-bottom:0">Telefonda: kutuya dokunun, sonra boş bir saate dokunun.</p>
+    <div class="trash" id="trash">Silmek için buraya sürükleyin</div>
   </div>
 
   <div class="card" style="margin:0;padding:0;overflow:hidden">
@@ -70,9 +84,33 @@
     </div>
   </form>
 </dialog>
+<dialog id="busy-dialog">
+  <form method="dialog">
+    <div class="dlg-body">
+      <h2 id="busy-title">Dolu</h2>
+      <div class="field">
+        <label>Açıklama</label>
+        <input type="text" id="busy-dlg-label" maxlength="60" placeholder="ör. Okul">
+      </div>
+      <div class="field">
+        <label>Sonraki saatleri de dolu yap</label>
+        <select id="busy-dlg-extend">
+          <option value="0">Hayır</option>
+          {% for n in range(1, 9) %}<option value="{{ n }}">+{{ n }} blok ({{ (n * slot / 60) | qty }} saat)</option>{% endfor %}
+          <option value="48">Gün sonuna kadar</option>
+        </select>
+      </div>
+    </div>
+    <div class="dlg-actions">
+      <button value="delete" class="btn danger" style="margin-right:auto">Sil</button>
+      <button value="cancel" class="btn">Vazgeç</button>
+      <button value="save" class="btn primary">Kaydet</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
 {% block scripts %}
 <script>window.DAYS = {{ DAYS | tojson }};</script>
 <script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/schedule.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=4"></script>
 {% endblock %}

@@ -82,6 +82,14 @@ CREATE TABLE IF NOT EXISTS schedule_slots (
     note        TEXT NOT NULL DEFAULT ''
 );
 
+-- Programda dolu olunan saatler (ders dışı meşguliyet)
+CREATE TABLE IF NOT EXISTS busy_blocks (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    day       INTEGER NOT NULL CHECK (day BETWEEN 0 AND 6),
+    start_min INTEGER NOT NULL,
+    label     TEXT NOT NULL DEFAULT ''
+);
+
 -- SMS taslakları
 CREATE TABLE IF NOT EXISTS message_templates (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,

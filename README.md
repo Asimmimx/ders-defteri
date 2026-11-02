@@ -15,6 +15,7 @@
 - **Asistan komisyonu** — varsayılan olarak yüzde veya saat başı sabit tutar; öğrenciye özel komisyon tanımlanabilir.
   Komisyon sayfasında kazanılan, size ödenen ve kalan bakiye; size ödeme yapıldığında bakiyeden düşülür.
 - **Notlar** — kullanıcılar arasında ortak notlar; sabitleme, tamamlandı işaretleme.
+- **Dolu saatler** — programda ders dışında meşgul olduğunuz saatleri (okul, iş vb.) açıklamasıyla işaretleyin; tek seferde birkaç saat doldurulabilir, dolu saate ders eklenemez.
 - **Haftalık program** — eklenecek ders türünü (yüz yüze / online) seçip öğrenciyi sürükleyip saate bırakın (telefonda dokun-dokun), günlük doluluk oranı ve müsait günler, **PNG olarak indir**.
 - **Haftalık yedek** — her pazar 03:00'te veritabanı yedeği; toplam 100 MB'ı aşınca en eski yedekler silinir. Ayarlar'dan elle yedek alınıp indirilebilir.
 

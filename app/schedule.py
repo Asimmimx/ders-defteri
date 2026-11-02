@@ -40,7 +40,21 @@ def api_list():
         """SELECT sl.*, s.name student_name, s.color FROM schedule_slots sl
            JOIN students s ON s.id = sl.student_id ORDER BY sl.day, sl.start_min"""
     ).fetchall()
-    return {"slots": [_slot_json(r) for r in rows]}
+    busy = get_db().execute("SELECT * FROM busy_blocks ORDER BY day, start_min").fetchall()
+    return {"slots": [_slot_json(r) for r in rows], "busy": [_slot_json(r) for r in busy]}
+
+
+def _is_busy(db, day, start_min, exclude_id=None):
+    row = db.execute("SELECT id FROM busy_blocks WHERE day = ? AND start_min = ? AND id IS NOT ?",
+                     (day, start_min, exclude_id)).fetchone()
+    return row is not None
+
+
+def _has_lesson(db, day, start_min):
+    return db.execute("SELECT 1 FROM schedule_slots WHERE day = ? AND start_min = ?", (day, start_min)).fetchone() is not None
+
+
+BUSY_MSG = "Bu saat dolu olarak işaretli. Önce dolu işaretini kaldırın."
 
 
 def _validate(data, partial=False):
@@ -73,6 +87,8 @@ def api_create():
     vals, err = _validate(data)
     if err:
         return {"error": err}, 400
+    if _is_busy(db, vals["day"], vals["start_min"]):
+        return {"error": BUSY_MSG}, 409
     cur = db.execute(
         "INSERT INTO schedule_slots(student_id, day, start_min, lesson_type, note) VALUES (?, ?, ?, ?, ?)",
         (sid, vals["day"], vals["start_min"], vals.get("lesson_type", "inperson"), vals.get("note", "")),
@@ -90,6 +106,8 @@ def api_update(slot_id):
     if not vals:
         return {"ok": True}
     db = get_db()
+    if "day" in vals and "start_min" in vals and _is_busy(db, vals["day"], vals["start_min"]):
+        return {"error": BUSY_MSG}, 409
     sets = ", ".join(f"{k} = ?" for k in vals)
     cur = db.execute(f"UPDATE schedule_slots SET {sets} WHERE id = ?", (*vals.values(), slot_id))
     db.commit()
@@ -102,5 +120,65 @@ def api_update(slot_id):
 def api_delete(slot_id):
     db = get_db()
     db.execute("DELETE FROM schedule_slots WHERE id = ?", (slot_id,))
+    db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------- Dolu saatler
+
+@bp.route("/api/dolu", methods=["POST"])
+def busy_create():
+    """Bir veya art arda birkaç saati dolu işaretler. Ders olan / zaten dolu saatler atlanır."""
+    data = request.get_json(silent=True) or {}
+    vals, err = _validate(data)
+    if err:
+        return {"error": err}, 400
+    start, end, slot = _grid_settings()
+    count = min(max(parse_int(data.get("count"), 1), 1), 48)
+    label = str(data.get("label") or "").strip()[:60]
+    db = get_db()
+    added, skipped = 0, 0
+    for i in range(count):
+        m = vals["start_min"] + i * slot
+        if m >= end * 60:
+            break
+        if _is_busy(db, vals["day"], m) or _has_lesson(db, vals["day"], m):
+            skipped += 1
+            continue
+        db.execute("INSERT INTO busy_blocks(day, start_min, label) VALUES (?, ?, ?)", (vals["day"], m, label))
+        added += 1
+    db.commit()
+    if not added:
+        return {"error": "Bu saatte ders var veya zaten dolu."}, 409
+    return {"added": added, "skipped": skipped}, 201
+
+
+@bp.route("/api/dolu/<int:bid>", methods=["PATCH"])
+def busy_update(bid):
+    data = request.get_json(silent=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM busy_blocks WHERE id = ?", (bid,)).fetchone()
+    if row is None:
+        return {"error": "Bulunamadı"}, 404
+    vals, err = _validate(data, partial=True)
+    if err:
+        return {"error": err}, 400
+    day = vals.get("day", row["day"])
+    m = vals.get("start_min", row["start_min"])
+    if (day, m) != (row["day"], row["start_min"]):
+        if _has_lesson(db, day, m):
+            return {"error": "Bu saatte ders var."}, 409
+        if _is_busy(db, day, m, exclude_id=bid):
+            return {"error": "Bu saat zaten dolu."}, 409
+    label = str(data["label"]).strip()[:60] if "label" in data else row["label"]
+    db.execute("UPDATE busy_blocks SET day = ?, start_min = ?, label = ? WHERE id = ?", (day, m, label, bid))
+    db.commit()
+    return {"ok": True}
+
+
+@bp.route("/api/dolu/<int:bid>", methods=["DELETE"])
+def busy_delete(bid):
+    db = get_db()
+    db.execute("DELETE FROM busy_blocks WHERE id = ?", (bid,))
     db.commit()
     return {"ok": True}

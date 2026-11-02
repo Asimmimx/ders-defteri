@@ -15,8 +15,11 @@
   const trash = document.getElementById("trash");
   const legend = document.getElementById("legend");
   const dialog = document.getElementById("slot-dialog");
+  const busyPalette = document.getElementById("busy-palette");
+  const busyDialog = document.getElementById("busy-dialog");
   let slots = [];
-  let picked = null; // dokunmatik mod: seçili öğrenci
+  let busy = [];
+  let picked = null; // dokunmatik mod: seçili öğrenci / dolu kutusu
 
   const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -26,8 +29,10 @@
     const isMobile = window.matchMedia("(max-width: 600px)").matches;
     let html = '<div class="hcell"></div>';
     for (let d = 0; d < 7; d++) {
-      const daySlots = slots.filter((s) => s.day === d);
-      const filled = new Set(daySlots.map((s) => s.start_min)).size;
+      const filled = new Set([
+        ...slots.filter((s) => s.day === d).map((s) => s.start_min),
+        ...busy.filter((b) => b.day === d).map((b) => b.start_min),
+      ]).size;
       const pct = Math.round((filled / times.length) * 100);
       const free = filled === 0;
       html += `<div class="hcell ${free ? "free" : ""}">${isMobile ? SHORT[d] : DAYS[d]}
@@ -37,7 +42,12 @@
       html += `<div class="tcell">${hhmm(t)}</div>`;
       for (let d = 0; d < 7; d++) {
         const here = slots.filter((s) => s.day === d && s.start_min === t);
-        html += `<div class="cell ${here.length ? "" : "empty-cell"}" data-day="${d}" data-min="${t}">`;
+        const b = busy.find((x) => x.day === d && x.start_min === t);
+        const cls = b ? "busy-cell" : here.length ? "" : "empty-cell";
+        html += `<div class="cell ${cls}" data-day="${d}" data-min="${t}">`;
+        if (b) {
+          html += `<div class="busy" data-busy-id="${b.id}">Dolu${b.label ? `<span class="ltype">${esc(b.label)}</span>` : ""}</div>`;
+        }
         for (const s of here) {
           const type = s.lesson_type === "online" ? "Online" : "Yüz yüze";
           html += `<div class="lesson ${s.lesson_type === "online" ? "online" : ""}" style="background:${esc(s.color)}" data-id="${s.id}">${esc(s.student_name)}
@@ -58,10 +68,12 @@
       by.set(s.student_id, e);
     }
     const total = slots.length;
-    const busy = new Set(slots.map((s) => `${s.day}-${s.start_min}`)).size;
+    const filled = new Set([...slots, ...busy].map((s) => `${s.day}-${s.start_min}`)).size;
     const cap = times.length * 7;
     const onlineCount = slots.filter((s) => s.lesson_type === "online").length;
-    let html = `<span class="muted">Toplam ${total} ders (${total - onlineCount} yüz yüze, ${onlineCount} online) · Haftalık doluluk %${Math.round((busy / cap) * 100)}</span>`;
+    const busyHours = Math.round((busy.length * SLOT / 60) * 100) / 100;
+    let html = `<span class="muted">Toplam ${total} ders (${total - onlineCount} yüz yüze, ${onlineCount} online) · Haftalık doluluk %${Math.round((filled / cap) * 100)}</span>`;
+    if (busy.length) html += `<span><span class="dot busy-item"></span>Dolu (${String(busyHours).replace(".", ",")} saat)</span>`;
     for (const e of by.values()) {
       html += `<span><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.name)} (${e.count})</span>`;
     }
@@ -72,6 +84,7 @@
     try {
       const data = await App.api("/api/program");
       slots = data.slots;
+      busy = data.busy || [];
       render();
     } catch (e) {
       App.toast(e.message);
@@ -79,7 +92,70 @@
   }
 
   // ---------------------------------------------------------- işlemler
+  const isBusyAt = (day, min) => busy.some((b) => b.day === day && b.start_min === min);
+
+  async function createBusy(day, min, count, label) {
+    try {
+      const r = await App.api("/api/dolu", "POST", { day, start_min: min, count, label });
+      await load();
+      App.toast(r.skipped ? `${r.added} saat dolu işaretlendi (${r.skipped} saat atlandı: ders var veya zaten dolu)` : "Dolu olarak işaretlendi");
+    } catch (e) { App.toast(e.message); }
+  }
+
+  async function moveBusy(id, day, min) {
+    const b = busy.find((x) => x.id === id);
+    if (!b || (b.day === day && b.start_min === min)) return;
+    try {
+      await App.api(`/api/dolu/${id}`, "PATCH", { day, start_min: min });
+    } catch (e) { App.toast(e.message); }
+    load();
+  }
+
+  async function deleteBusy(id) {
+    busy = busy.filter((x) => x.id !== id);
+    render();
+    try {
+      await App.api(`/api/dolu/${id}`, "DELETE");
+      App.toast("Dolu işareti kaldırıldı");
+    } catch (e) { App.toast(e.message); load(); }
+  }
+
+  function openBusyDialog(id) {
+    const b = busy.find((x) => x.id === id);
+    if (!b) return;
+    document.getElementById("busy-title").textContent = `Dolu · ${DAYS[b.day]} ${hhmm(b.start_min)}`;
+    const label = document.getElementById("busy-dlg-label");
+    const extend = document.getElementById("busy-dlg-extend");
+    label.value = b.label || "";
+    extend.value = "0";
+    busyDialog.returnValue = "";
+    busyDialog.onclose = async () => {
+      if (busyDialog.returnValue === "save") {
+        try {
+          await App.api(`/api/dolu/${id}`, "PATCH", { label: label.value });
+          const n = parseInt(extend.value, 10);
+          if (n > 0) {
+            await App.api("/api/dolu", "POST", { day: b.day, start_min: b.start_min + SLOT, count: n, label: label.value })
+              .catch((e) => App.toast(e.message));
+          }
+          load();
+        } catch (e) { App.toast(e.message); }
+      } else if (busyDialog.returnValue === "delete") {
+        deleteBusy(id);
+      }
+    };
+    busyDialog.showModal();
+  }
+
+  function busyOptions() {
+    return {
+      count: parseInt(document.getElementById("busy-count").value, 10) || 1,
+      label: document.getElementById("busy-label").value.trim(),
+    };
+  }
+
   async function createSlot(studentId, day, min) {
+    if (isBusyAt(day, min)) { App.toast("Bu saat dolu olarak işaretli. Önce dolu işaretini kaldırın."); return; }
     try {
       const type = document.querySelector('input[name="new_type"]:checked')?.value || "inperson";
       await App.api("/api/program", "POST", { student_id: studentId, day, start_min: min, lesson_type: type });
@@ -91,6 +167,7 @@
   async function moveSlot(id, day, min) {
     const s = slots.find((x) => x.id === id);
     if (!s || (s.day === day && s.start_min === min)) return;
+    if (isBusyAt(day, min)) { App.toast("Bu saat dolu olarak işaretli."); return; }
     s.day = day; s.start_min = min; render(); // iyimser güncelleme
     try {
       await App.api(`/api/program/${id}`, "PATCH", { day, start_min: min });
@@ -143,7 +220,7 @@
 
   function onPointerDown(e) {
     if (e.button !== undefined && e.button !== 0) return;
-    const src = e.target.closest(".pal-item, .lesson");
+    const src = e.target.closest(".pal-item, .lesson, .busy");
     if (!src) return;
     drag = { src, x: e.clientX, y: e.clientY, active: false, ghost: null, over: null, pointerId: e.pointerId };
     src.setPointerCapture?.(e.pointerId);
@@ -187,9 +264,11 @@
     d.src.classList.remove("dragging");
     d.over?.classList.remove("over");
     const isLesson = d.src.classList.contains("lesson");
+    const busyId = d.src.dataset.busyId ? parseInt(d.src.dataset.busyId, 10) : null;
 
     if (!d.active) { // tıklama
       if (isLesson) openDialog(parseInt(d.src.dataset.id, 10));
+      else if (busyId) openBusyDialog(busyId);
       else setPicked(d.src);
       return;
     }
@@ -197,11 +276,14 @@
     if (!t) return;
     if (t.id === "trash") {
       if (isLesson) deleteSlot(parseInt(d.src.dataset.id, 10));
+      else if (busyId) deleteBusy(busyId);
       return;
     }
     const day = parseInt(t.dataset.day, 10);
     const min = parseInt(t.dataset.min, 10);
     if (isLesson) moveSlot(parseInt(d.src.dataset.id, 10), day, min);
+    else if (busyId) moveBusy(busyId, day, min);
+    else if (d.src.dataset.busy) { const o = busyOptions(); createBusy(day, min, o.count, o.label); }
     else createSlot(parseInt(d.src.dataset.student, 10), day, min);
   }
 
@@ -213,7 +295,7 @@
     drag = null;
   }
 
-  [grid, palette].forEach((el) => el && el.addEventListener("pointerdown", onPointerDown));
+  [grid, palette, busyPalette].forEach((el) => el && el.addEventListener("pointerdown", onPointerDown));
   document.addEventListener("pointermove", onPointerMove, { passive: false });
   document.addEventListener("pointerup", onPointerUp);
   document.addEventListener("pointercancel", onPointerCancel);
@@ -221,8 +303,11 @@
   // Dokunmatik mod: seçili öğrenciyi boş hücreye yerleştir
   grid.addEventListener("click", (e) => {
     const cell = e.target.closest(".cell");
-    if (!cell || e.target.closest(".lesson") || !picked) return;
-    createSlot(parseInt(picked.dataset.student, 10), parseInt(cell.dataset.day, 10), parseInt(cell.dataset.min, 10));
+    if (!cell || e.target.closest(".lesson, .busy") || !picked) return;
+    const day = parseInt(cell.dataset.day, 10);
+    const min = parseInt(cell.dataset.min, 10);
+    if (picked.dataset.busy) { const o = busyOptions(); createBusy(day, min, o.count, o.label); }
+    else createSlot(parseInt(picked.dataset.student, 10), day, min);
   });
 
   window.addEventListener("resize", () => { clearTimeout(window._rt); window._rt = setTimeout(render, 150); });

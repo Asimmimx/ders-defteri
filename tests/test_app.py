@@ -179,6 +179,25 @@ class AppFlowTest(unittest.TestCase):
         self.assertEqual((slots[0]["day"], slots[0]["start_min"], slots[0]["lesson_type"]), (2, 660, "online"))
         self.assertEqual(self.c.delete(f"/api/program/{sid}", headers=h).status_code, 200)
 
+        # Dolu saatler: Salı 09:00'dan 3 saat; 11:00'de ders varsa atlanır
+        r = self.c.post("/api/program", json={"student_id": st["id"], "day": 1, "start_min": 660}, headers=h)
+        lesson_id = r.get_json()["id"]
+        r = self.c.post("/api/dolu", json={"day": 1, "start_min": 540, "count": 3, "label": "Okul"}, headers=h)
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.get_json(), {"added": 2, "skipped": 1})
+        busy = self.c.get("/api/program").get_json()["busy"]
+        self.assertEqual(sorted(b["start_min"] for b in busy), [540, 600])
+        self.assertEqual(busy[0]["label"], "Okul")
+        # Dolu saate ders eklenemez / taşınamaz
+        self.assertEqual(self.c.post("/api/program", json={"student_id": st["id"], "day": 1, "start_min": 540}, headers=h).status_code, 409)
+        self.assertEqual(self.c.patch(f"/api/program/{lesson_id}", json={"day": 1, "start_min": 600}, headers=h).status_code, 409)
+        # Dolu blok derse taşınamaz, boş saate taşınır
+        bid = busy[0]["id"]
+        self.assertEqual(self.c.patch(f"/api/dolu/{bid}", json={"day": 1, "start_min": 660}, headers=h).status_code, 409)
+        self.assertEqual(self.c.patch(f"/api/dolu/{bid}", json={"day": 3, "start_min": 540, "label": "İş"}, headers=h).status_code, 200)
+        self.assertEqual(self.c.delete(f"/api/dolu/{bid}", headers=h).status_code, 200)
+        self.assertEqual(len(self.c.get("/api/program").get_json()["busy"]), 1)
+
         # Tüm sayfalar açılıyor
         for path in ["/", "/veliler", f"/veliler/{pid}", "/odemeler", "/odemeler?durum=paid", "/odemeler/yeni",
                      f"/odemeler/{pay_id}/duzenle", "/program", "/komisyon", "/ayarlar", "/notlar",

@@ -281,3 +281,13 @@ h1 svg, h2 svg, h3 svg { width: 1.05em; height: 1.05em; vertical-align: -0.15em;
 .type-toggle input { position: absolute; opacity: 0; pointer-events: none; }
 .type-toggle label:has(input:checked) { background: var(--primary); color: #fff; }
 .lesson.online { background-image: repeating-linear-gradient(135deg, rgba(255,255,255,.22) 0 5px, transparent 5px 11px); }
+
+/* Dolu saatler */
+.busy-item, .busy {
+  background-color: #6b7489;
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 6px, transparent 6px 12px);
+  color: #fff;
+}
+.busy { border-radius: 7px; padding: 4px 7px; font-size: .8rem; font-weight: 600; cursor: grab; user-select: none; line-height: 1.25; touch-action: none; }
+.busy .ltype { display: block; font-weight: 400; font-size: .7rem; opacity: .9; }
+.sched-grid .cell.busy-cell { background: rgba(107, 116, 137, .08); }
