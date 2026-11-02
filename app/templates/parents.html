@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Veliler{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Veliler</h1>
+  <a class="btn primary" href="{{ url_for('main.parent_new') }}">{{ icon('plus') }} Yeni veli</a>
+</div>
+<form class="toolbar" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Veli, öğrenci veya telefon ara…">
+  <input type="hidden" name="goster" value="{{ show }}">
+  <div class="tabs">
+    <a href="?goster=aktif&q={{ q | urlencode }}" class="{{ 'active' if show == 'aktif' }}">Aktif</a>
+    <a href="?goster=pasif&q={{ q | urlencode }}" class="{{ 'active' if show == 'pasif' }}">Pasif</a>
+    <a href="?goster=tumu&q={{ q | urlencode }}" class="{{ 'active' if show == 'tumu' }}">Tümü</a>
+  </div>
+</form>
+<div class="card">
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Veli</th><th>Öğrenci(ler)</th><th>Telefon</th><th class="right">Bekleyen</th></tr></thead>
+    <tbody>
+    {% for p in parents %}
+      <tr class="clickable" data-href="{{ url_for('main.parent_detail', pid=p.id) }}">
+        <td><strong>{{ p.name }}</strong>{% if not p.active %} <span class="badge cancelled">Pasif</span>{% endif %}</td>
+        <td>{{ p.children or '—' }}</td>
+        <td class="nowrap">{{ p.phone or '—' }}</td>
+        <td class="right nowrap">{% if p.pending_total %}<span class="badge pending">{{ p.pending_total | money }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">{% if q %}Sonuç bulunamadı.{% else %}Henüz veli eklenmedi. <a href="{{ url_for('main.parent_new') }}">İlk veliyi ekleyin →</a>{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

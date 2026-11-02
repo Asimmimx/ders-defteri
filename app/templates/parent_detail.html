@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, lessons_text %}
+{% block title %}{{ parent.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{{ url_for('main.parents') }}">← Veliler</a>
+    <h1>{{ parent.name }} {% if not parent.active %}<span class="badge cancelled">Pasif</span>{% endif %}</h1>
+    <div class="muted">{% if parent.phone %}<a href="tel:{{ parent.phone }}">{{ parent.phone }}</a>{% else %}Telefon yok{% endif %}</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('main.parent_edit', pid=parent.id) }}">{{ icon('edit') }} Düzenle</a>
+    {% if students %}
+    <a class="btn primary" href="{{ url_for('payments.new', ogrenci=students[0].id) }}">{{ icon('plus') }} Ödeme ekle</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="label">Bekleyen</div><div class="value" style="color:var(--warning)">{{ pending_total | money }}</div></div>
+  <div class="stat"><div class="label">Toplam ödenen</div><div class="value" style="color:var(--success)">{{ paid_total | money }}</div></div>
+  <div class="stat"><div class="label">Öğrenci</div><div class="value">{{ students | length }}</div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>Öğrenciler ve tarifeler</h2>
+      <a class="btn sm" href="{{ url_for('main.student_new', parent_id=parent.id) }}">{{ icon('plus') }} Öğrenci ekle</a>
+    </div>
+    {% for s in students %}
+      <div class="student-card">
+        <div class="avatar" style="background:{{ s.color }}">{{ s.name[:1] | upper }}</div>
+        <div class="body">
+          <div><strong>{{ s.name }}</strong> {% if not s.active %}<span class="badge cancelled">Pasif</span>{% endif %}</div>
+          <div class="small">Online: <strong>{{ s.online_price | money }}</strong> · Yüz yüze: <strong>{{ s.inperson_price | money }}</strong></div>
+          <div class="small muted">Komisyon: {{ commission_label(s.commission_type, s.commission_value) if s.commission_type else 'Varsayılan (' ~ default_label ~ ')' }}</div>
+          {% if s.notes %}<div class="small muted">{{ s.notes }}</div>{% endif %}
+        </div>
+        <div class="form-actions" style="margin:0">
+          <a class="btn sm" href="{{ url_for('payments.new', ogrenci=s.id) }}" title="Bu öğrenci için ödeme ekle">{{ icon('plus') }}</a>
+          <a class="btn sm" href="{{ url_for('main.student_edit', sid=s.id) }}" title="Düzenle">{{ icon('edit') }}</a>
+        </div>
+      </div>
+    {% else %}
+      <p class="empty">Henüz öğrenci yok. <a href="{{ url_for('main.student_new', parent_id=parent.id) }}">Öğrenci ekleyin →</a></p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h2>Bilgiler</h2>
+    <dl class="info">
+      <dt>Telefon</dt><dd>{{ parent.phone or '—' }}</dd>
+      <dt>Kayıt tarihi</dt><dd>{{ parent.created_at | tarih }}</dd>
+      <dt>Notlar</dt><dd style="white-space:pre-wrap">{{ parent.notes or '—' }}</dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Ödeme geçmişi</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Öğrenci</th><th>Dersler</th><th>Son ödeme / Ödendi</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
+    <tbody>
+    {% for p in payments %}
+      <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">
+        <td class="nowrap"><span class="dot" style="background:{{ p.color }}"></span>{{ p.student_name }}
+          {% if p.description %}<div class="small muted">{{ p.description }}</div>{% endif %}</td>
+        <td class="small">{{ lessons_text(p) }}</td>
+        <td class="small nowrap">{{ (p.paid_at if p.status == 'paid' else p.due_date) | tarih }}</td>
+        <td>{{ status_badge(p, today) }} {% if p.receipt_path %}<span class="badge info">Dekont</span>{% endif %}</td>
+        <td class="right nowrap"><strong>{{ (p.paid_amount if p.status == 'paid' else p.amount) | money }}</strong></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">Ödeme kaydı yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

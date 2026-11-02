@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Ayarlar{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Ayarlar</h1></div>
+
+<div class="grid grid-2">
+  <div class="card" id="komisyon">
+    <h2>Asistan komisyonu</h2>
+    <p class="small muted">Şu an: <strong>{{ clabel }}</strong>. Öğrenciye özel komisyon tanımlanmışsa o kullanılır. Değişiklik sadece bundan sonra tamamlanan ödemelere uygulanır.</p>
+    <form method="post" action="{{ url_for('settings.save_commission') }}">
+      {{ csrf() }}
+      <div class="row">
+        <div class="field">
+          <label for="commission_type">Hesaplama</label>
+          <select id="commission_type" name="commission_type">
+            <option value="percent" {{ 'selected' if s.commission_type == 'percent' }}>Yüzde (ödeme tutarının %'si)</option>
+            <option value="fixed" {{ 'selected' if s.commission_type == 'fixed' }}>Ders başı sabit tutar (₺)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="commission_value">Değer</label>
+          <input type="text" inputmode="decimal" id="commission_value" name="commission_value" value="{{ s.commission_value | num }}">
+        </div>
+      </div>
+      <button class="btn primary">Kaydet</button>
+    </form>
+  </div>
+
+  <div class="card" id="program">
+    <h2>Haftalık program</h2>
+    <form method="post" action="{{ url_for('settings.save_schedule') }}">
+      {{ csrf() }}
+      <div class="row">
+        <div class="field">
+          <label for="schedule_start_hour">Başlangıç saati</label>
+          <select id="schedule_start_hour" name="schedule_start_hour">
+            {% for h in range(0, 24) %}<option value="{{ h }}" {{ 'selected' if s.schedule_start_hour|int == h }}>{{ '%02d:00' % h }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="schedule_end_hour">Bitiş saati</label>
+          <select id="schedule_end_hour" name="schedule_end_hour">
+            {% for h in range(1, 25) %}<option value="{{ h }}" {{ 'selected' if s.schedule_end_hour|int == h }}>{{ '%02d:00' % h }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="slot_minutes">Ders süresi</label>
+          <select id="slot_minutes" name="slot_minutes">
+            {% for m in [30, 45, 60, 90, 120] %}<option value="{{ m }}" {{ 'selected' if s.slot_minutes|int == m }}>{{ m }} dk</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="btn primary">Kaydet</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" id="taslaklar">
+  <h2>SMS / mesaj taslakları</h2>
+  <p class="small muted">Kullanılabilir alanlar: <code>{veli}</code> <code>{ogrenci}</code> <code>{tutar}</code> <code>{ders_sayisi}</code> <code>{ders_detay}</code> (ör. "2 online + 1 yüz yüze") <code>{son_odeme}</code> <code>{aciklama}</code></p>
+  {% for t in templates %}
+    <details class="box" style="border-bottom:1px solid var(--line);padding:8px 0">
+      <summary>{{ t.name }}</summary>
+      <form method="post" action="{{ url_for('settings.save_template', tid=t.id) }}" style="margin-top:8px">
+        {{ csrf() }}
+        <div class="field"><input type="text" name="name" value="{{ t.name }}" required></div>
+        <div class="field"><textarea name="body" rows="4" required>{{ t.body }}</textarea></div>
+        <div class="form-actions">
+          <button class="btn primary sm">Kaydet</button>
+          <button class="btn danger sm" formaction="{{ url_for('settings.delete_template', tid=t.id) }}" data-confirm-btn="Taslak silinsin mi?">Sil</button>
+        </div>
+      </form>
+    </details>
+  {% endfor %}
+  <details class="box" style="padding:8px 0" {{ 'open' if not templates }}>
+    <summary>+ Yeni taslak</summary>
+    <form method="post" action="{{ url_for('settings.save_template') }}" style="margin-top:8px">
+      {{ csrf() }}
+      <div class="field"><input type="text" name="name" placeholder="Taslak adı" required></div>
+      <div class="field"><textarea name="body" rows="4" required placeholder="Merhaba {veli}, {ogrenci} için {tutar} ödemenizi hatırlatırız."></textarea></div>
+      <button class="btn primary sm">Ekle</button>
+    </form>
+  </details>
+</div>
+
+<div class="grid grid-2" id="hesap">
+  <div class="card">
+    <h2>Şifre değiştir</h2>
+    <form method="post" action="{{ url_for('settings.change_password') }}">
+      {{ csrf() }}
+      <div class="field"><label>Mevcut şifre</label><input type="password" name="current" autocomplete="current-password" required></div>
+      <div class="field"><label>Yeni şifre (en az 8 karakter)</label><input type="password" name="new" autocomplete="new-password" minlength="8" required></div>
+      <div class="field"><label>Yeni şifre (tekrar)</label><input type="password" name="new2" autocomplete="new-password" minlength="8" required></div>
+      <button class="btn primary">Değiştir</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Kullanıcılar</h2>
+    <p class="small muted">Tüm kullanıcılar tam yetkilidir.</p>
+    <table>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td><strong>{{ u.username }}</strong>{% if u.full_name %} <span class="muted small">· {{ u.full_name }}</span>{% endif %}
+            {% if u.id == g.user.id %}<span class="badge info">Siz</span>{% endif %}</td>
+          <td class="right">
+            {% if u.id != g.user.id %}
+            <form method="post" action="{{ url_for('settings.delete_user', uid=u.id) }}" class="inline" data-confirm="{{ u.username }} silinsin mi?">
+              {{ csrf() }}<button class="link-btn danger small">Sil</button></form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <details class="box" style="margin-top:10px">
+      <summary>+ Kullanıcı ekle</summary>
+      <form method="post" action="{{ url_for('settings.add_user') }}" style="margin-top:8px">
+        {{ csrf() }}
+        <div class="row">
+          <div class="field"><label>Kullanıcı adı</label><input type="text" name="username" required pattern="[A-Za-z0-9_.\-]{3,32}" autocomplete="off"></div>
+          <div class="field"><label>Ad soyad</label><input type="text" name="full_name"></div>
+        </div>
+        <div class="field"><label>Şifre (en az 8 karakter)</label><input type="password" name="password" minlength="8" required autocomplete="new-password"></div>
+        <button class="btn primary sm">Ekle</button>
+      </form>
+    </details>
+  </div>
+</div>
+
+<div class="card" id="yedekler">
+  <div class="card-head">
+    <h2>Veritabanı yedekleri</h2>
+    <form method="post" action="{{ url_for('settings.make_backup') }}">{{ csrf() }}<button class="btn">{{ icon('download') }} Şimdi yedek al</button></form>
+  </div>
+  <p class="small muted">Her hafta otomatik yedek alınır. Toplam {{ s.backup_limit_mb }} MB sınırı aşılınca en eski yedekler silinir.</p>
+  {% set used_pct = (backup_total / (s.backup_limit_mb|float * 1024 * 1024) * 100) if s.backup_limit_mb|float > 0 else 0 %}
+  <div class="bar" style="margin-bottom:4px"><span style="width:{{ [used_pct, 100] | min }}%"></span></div>
+  <div class="small muted" style="margin-bottom:12px">{{ '%.2f' % (backup_total / 1048576) }} MB / {{ s.backup_limit_mb }} MB kullanılıyor · {{ backups | length }} yedek</div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Dosya</th><th>Tarih</th><th class="right">Boyut</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+      <tr>
+        <td class="small">{{ b.name }}</td>
+        <td class="small nowrap">{{ b.time.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td class="right small nowrap">{{ '%.1f' % (b.size / 1024) }} KB</td>
+        <td class="right"><a class="btn sm" href="{{ url_for('settings.download_backup', name=b.name) }}">İndir</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">Henüz yedek yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Komisyon{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Komisyonum</h1>
+    <div class="muted">Tamamlanan her ödemede komisyon eklenir; bana ödeme yapıldığında bakiyeden düşülür.</div>
+  </div>
+  <a class="btn" href="{{ url_for('settings.index') }}">Komisyon ayarları</a>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="label">Toplam kazanılan</div><div class="value" style="color:var(--success)">{{ earned | money }}</div></div>
+  <div class="stat"><div class="label">Bana ödenen</div><div class="value">{{ paid_out | money }}</div></div>
+  <div class="stat accent"><div class="label">Kalan bakiye</div><div class="value">{{ balance | money }}</div><div class="sub">Henüz bana ödenmemiş</div></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Bana yapılan ödemeyi kaydet</h2>
+    <form method="post" action="{{ url_for('commission.add_payout') }}">
+      {{ csrf() }}
+      <div class="row">
+        <div class="field">
+          <label for="amount">Tutar (₺)</label>
+          <input type="text" inputmode="decimal" id="amount" name="amount" required placeholder="ör. {{ balance | num if balance > 0 else '1000' }}">
+        </div>
+        <div class="field">
+          <label for="paid_on">Tarih</label>
+          <input type="date" id="paid_on" name="paid_on" value="{{ today }}">
+        </div>
+      </div>
+      <div class="field">
+        <label for="note">Not</label>
+        <input type="text" id="note" name="note" placeholder="ör. Ekim ayı komisyonu">
+      </div>
+      <div class="form-actions">
+        <button class="btn primary">Bakiyeden düş</button>
+        {% if balance > 0 %}
+        <button type="button" class="btn" onclick="document.getElementById('amount').value='{{ balance | num }}'">Tamamını gir ({{ balance | money }})</button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Aylık özet</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Ay</th><th class="right">Kazanılan</th><th class="right">Ödenen</th></tr></thead>
+      <tbody>
+      {% for m in monthly %}
+        <tr class="clickable" data-href="?ay={{ m.m }}">
+          <td>{{ m.m }}</td>
+          <td class="right" style="color:var(--success)">{{ m.earned | money }}</td>
+          <td class="right">{{ m.paid_out | money }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="empty">Henüz kayıt yok.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>Kazanılan komisyonlar {% if month %}<span class="badge info">{{ month }}</span>{% endif %}</h2>
+      {% if month %}<a class="small" href="{{ url_for('commission.index') }}">Filtreyi kaldır</a>{% endif %}
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tarih</th><th>Öğrenci</th><th class="right">Ödeme</th><th class="right">Komisyon</th></tr></thead>
+      <tbody>
+      {% for e in earnings %}
+        <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=e.id) }}">
+          <td class="small nowrap">{{ e.paid_at | tarih }}</td>
+          <td><span class="dot" style="background:{{ e.color }}"></span>{{ e.student_name }}<div class="small muted">{{ e.parent_name }}</div></td>
+          <td class="right nowrap">{{ e.paid_amount | money }}</td>
+          <td class="right nowrap" style="color:var(--success)"><strong>+{{ e.commission_amount | money }}</strong></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">Kayıt yok.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bana yapılan ödemeler</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tarih</th><th>Not</th><th class="right">Tutar</th><th></th></tr></thead>
+      <tbody>
+      {% for o in payouts %}
+        <tr>
+          <td class="small nowrap">{{ o.paid_on | tarih }}</td>
+          <td class="small">{{ o.note or '—' }}</td>
+          <td class="right nowrap"><strong>−{{ o.amount | money }}</strong></td>
+          <td class="right">
+            <form method="post" action="{{ url_for('commission.delete_payout', oid=o.id) }}" class="inline" data-confirm="Bu kayıt silinsin mi? Bakiye geri artar.">
+              {{ csrf() }}<button class="link-btn danger small">Sil</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">Henüz ödeme yapılmadı.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

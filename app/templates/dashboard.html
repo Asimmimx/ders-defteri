@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, lessons_text %}
+{% block title %}Özet{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Merhaba{{ ', ' ~ g.user.full_name if g.user.full_name }}</h1>
+    <div class="muted">{{ today | tarih }} · {{ counts.parents }} aktif veli, {{ counts.students }} aktif öğrenci</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('main.parent_new') }}">{{ icon('plus') }} Veli ekle</a>
+    <a class="btn primary" href="{{ url_for('payments.new') }}">{{ icon('plus') }} Ödeme ekle</a>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="label">Bekleyen ödemeler</div>
+    <div class="value">{{ pending.s | money }}</div>
+    <div class="sub">{{ pending.c }} kayıt</div>
+  </div>
+  <div class="stat">
+    <div class="label">Geciken</div>
+    <div class="value" style="color:var(--danger)">{{ overdue.s | money }}</div>
+    <div class="sub">{{ overdue.c }} kayıt, son ödeme tarihi geçti</div>
+  </div>
+  <div class="stat">
+    <div class="label">Bu ay tahsil edilen</div>
+    <div class="value" style="color:var(--success)">{{ collected | money }}</div>
+    <div class="sub">Bu ayki komisyonum: {{ month_commission | money }}</div>
+  </div>
+  <a class="stat accent" href="{{ url_for('commission.index') }}" style="text-decoration:none">
+    <div class="label">Komisyon bakiyem</div>
+    <div class="value">{{ balance | money }}</div>
+    <div class="sub">Henüz bana ödenmemiş tutar →</div>
+  </a>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2>Bekleyen ödemeler</h2>
+      <a class="small" href="{{ url_for('payments.index') }}">Tümü →</a>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <tbody>
+      {% for p in upcoming %}
+        <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">
+          <td>
+            <div><span class="dot" style="background:{{ p.color }}"></span><strong>{{ p.parent_name }}</strong></div>
+            <div class="small muted">{{ p.student_name }} · {{ lessons_text(p) }}</div>
+          </td>
+          <td class="nowrap small">{{ p.due_date | tarih }}<br>{{ status_badge(p, today) }}</td>
+          <td class="right nowrap"><strong>{{ p.amount | money }}</strong>
+            {% if p.reminder_sent_at %}<div class="small muted">Hatırlatıldı</div>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td class="empty">Bekleyen ödeme yok.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Son tahsilatlar</h2>
+      <a class="small" href="{{ url_for('payments.index', durum='paid') }}">Tümü →</a>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <tbody>
+      {% for p in recent %}
+        <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">
+          <td>
+            <div><span class="dot" style="background:{{ p.color }}"></span><strong>{{ p.parent_name }}</strong></div>
+            <div class="small muted">{{ p.student_name }} · {{ p.paid_at | tarih }}</div>
+          </td>
+          <td class="right nowrap"><strong>{{ p.paid_amount | money }}</strong>
+            <div class="small muted">+{{ p.commission_amount | money }} komisyon</div></td>
+        </tr>
+      {% else %}
+        <tr><td class="empty">Henüz tahsilat yok</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

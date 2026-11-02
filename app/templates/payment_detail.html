@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, lessons_text, csrf %}
+{% block title %}Ödeme · {{ p.parent_name }}{% endblock %}
+{% block content %}
+{% set lessons = p.online_count + p.inperson_count %}
+{% set rpath = (p.receipt_path or '') | lower %}
+{% set is_image = rpath.endswith(('.jpg', '.jpeg', '.png', '.webp', '.gif')) %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{{ url_for('main.parent_detail', pid=p.parent_id) }}">← {{ p.parent_name }}</a>
+    <h1><span class="dot" style="background:{{ p.color }};width:14px;height:14px"></span>{{ p.student_name }} {{ status_badge(p, today) }}</h1>
+    <div class="muted">{{ p.description or 'Ödeme kaydı #' ~ p.id }}</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn" href="{{ url_for('payments.edit', pay_id=p.id) }}">{{ icon('edit') }} Düzenle</a>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div>
+    <div class="card">
+      <div class="muted small">{{ 'Ödenen tutar' if p.status == 'paid' else 'Ödenecek tutar' }}</div>
+      <div class="amount-big">{{ (p.paid_amount if p.status == 'paid' else p.amount) | money }}</div>
+      <dl class="info" style="margin-top:12px">
+        <dt>Veli</dt><dd><a href="{{ url_for('main.parent_detail', pid=p.parent_id) }}">{{ p.parent_name }}</a></dd>
+        <dt>Telefon</dt><dd>{% if p.parent_phone %}<a href="tel:{{ p.parent_phone }}">{{ p.parent_phone }}</a>{% else %}—{% endif %}</dd>
+        <dt>Dersler</dt><dd>{{ lessons_text(p) }}</dd>
+        <dt>Tahakkuk</dt><dd>{{ p.amount | money }}</dd>
+        <dt>Son ödeme</dt><dd>{{ p.due_date | tarih }}</dd>
+        <dt>Oluşturulma</dt><dd>{{ p.created_at | tarihsaat }}</dd>
+        {% if p.reminder_sent_at %}<dt>Hatırlatma</dt><dd>{{ p.reminder_sent_at | tarihsaat }}</dd>{% endif %}
+        {% if p.status == 'paid' %}
+          <dt>Ödeme tarihi</dt><dd>{{ p.paid_at | tarih }}</dd>
+          <dt>Yöntem</dt><dd>{{ p.method or '—' }}</dd>
+          <dt>Komisyonum</dt><dd style="color:var(--success)">{{ p.commission_amount | money }}
+            <span class="small muted">({{ 'Ders başı ' ~ (p.commission_value | money) if p.commission_type == 'fixed' else '%' ~ (p.commission_value | num) }})</span></dd>
+        {% endif %}
+        {% if p.notes %}<dt>Not</dt><dd style="white-space:pre-wrap">{{ p.notes }}</dd>{% endif %}
+      </dl>
+    </div>
+
+    {% if p.status == 'paid' or p.receipt_path %}
+    <div class="card">
+      <div class="card-head"><h2>Dekont</h2>
+        {% if p.receipt_path %}<a class="btn sm" href="{{ url_for('payments.receipt', pay_id=p.id, indir=1) }}">{{ icon('download') }} İndir</a>{% endif %}
+      </div>
+      {% if p.receipt_path %}
+        {% if is_image %}
+          <a href="{{ url_for('payments.receipt', pay_id=p.id) }}" target="_blank"><img class="receipt-preview" src="{{ url_for('payments.receipt', pay_id=p.id) }}" alt="Dekont"></a>
+        {% else %}
+          <a class="btn" href="{{ url_for('payments.receipt', pay_id=p.id) }}" target="_blank">{{ icon('image') }} {{ p.receipt_name }}</a>
+        {% endif %}
+      {% else %}
+        <p class="muted">Dekont yüklenmemiş.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('payments.upload_receipt', pay_id=p.id) }}" enctype="multipart/form-data" style="margin-top:12px">
+        {{ csrf() }}
+        <div class="row" style="align-items:flex-end">
+          <div class="field" style="margin:0"><input type="file" name="receipt" accept="image/*,.pdf,.heic" required></div>
+          <div style="flex:0"><button class="btn">{{ icon('upload') }} {{ 'Değiştir' if p.receipt_path else 'Yükle' }}</button></div>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <div>
+    {% if p.status == 'pending' %}
+    <div class="card" data-reminder data-mark-url="{{ url_for('payments.mark_reminded', pay_id=p.id) }}">
+      <div class="card-head"><h2>{{ icon('msg') }} Hatırlatma mesajı</h2></div>
+      {% if messages %}
+        {% if messages | length > 1 %}
+        <div class="tabs" style="margin-bottom:10px">
+          {% for m in messages %}<a href="#" data-tpl="{{ loop.index0 }}" class="{{ 'active' if loop.first }}">{{ m.name }}</a>{% endfor %}
+        </div>
+        {% endif %}
+        {% for m in messages %}<template data-tpl-text="{{ loop.index0 }}">{{ m.text }}</template>{% endfor %}
+        <textarea data-msg rows="5">{{ messages[0].text }}</textarea>
+        <div class="form-actions">
+          <button type="button" class="btn primary" data-copy>{{ icon('copy') }} Kopyala</button>
+          {% if phone %}
+            <a class="btn" data-sms href="sms:{{ phone }}" data-phone="{{ phone }}">{{ icon('msg') }} SMS'te aç</a>
+            <a class="btn" data-wa href="https://wa.me/{{ phone[1:] }}" data-phone="{{ phone[1:] }}" target="_blank" rel="noopener">WhatsApp</a>
+          {% endif %}
+        </div>
+        <div class="small muted" style="margin-top:8px">
+          {% if not phone %}Velinin telefonu kayıtlı değil; mesajı kopyalayıp gönderin. {% endif %}
+          Kopyaladığınızda veya SMS'i açtığınızda "hatırlatıldı" olarak işaretlenir. Taslakları <a href="{{ url_for('settings.index') }}#taslaklar">Ayarlar</a>'dan düzenleyin.
+        </div>
+      {% else %}
+        <p class="muted">Henüz mesaj taslağı yok. <a href="{{ url_for('settings.index') }}#taslaklar">Taslak ekleyin →</a></p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>{{ icon('check') }} Ödeme alındı</h2>
+      <form method="post" action="{{ url_for('payments.complete', pay_id=p.id) }}" enctype="multipart/form-data"
+            data-complete data-ctype="{{ ctype }}" data-cvalue="{{ cvalue }}" data-lessons="{{ lessons }}">
+        {{ csrf() }}
+        <div class="row">
+          <div class="field">
+            <label for="paid_amount">Ödenen tutar (₺)</label>
+            <input type="text" inputmode="decimal" id="paid_amount" name="paid_amount" value="{{ p.amount | num }}" data-paid>
+          </div>
+          <div class="field">
+            <label for="paid_at">Ödeme tarihi</label>
+            <input type="date" id="paid_at" name="paid_at" value="{{ today }}">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="method">Ödeme yöntemi</label>
+            <select id="method" name="method">
+              {% for m in METHODS %}<option {{ 'selected' if m == 'Havale/EFT' }}>{{ m }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="commission_amount">Komisyonum (₺)</label>
+            <input type="text" inputmode="decimal" id="commission_amount" name="commission_amount" value="{{ preview | num }}" data-commission>
+            <div class="hint">{{ clabel }} üzerinden otomatik</div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="receipt">Dekont / kanıt (isteğe bağlı)</label>
+          <input type="file" id="receipt" name="receipt" accept="image/*,.pdf,.heic">
+        </div>
+        <button class="btn success block">{{ icon('check') }} Ödemeyi tamamla</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <h3>Diğer işlemler</h3>
+      <div class="form-actions">
+        {% if p.status == 'paid' %}
+          <form method="post" action="{{ url_for('payments.reopen', pay_id=p.id) }}" data-confirm="Ödeme tekrar 'bekliyor' yapılsın mı? Komisyon bakiyenizden düşülecek.">
+            {{ csrf() }}<button class="btn">Ödemeyi geri al</button></form>
+        {% elif p.status == 'pending' %}
+          <form method="post" action="{{ url_for('payments.cancel', pay_id=p.id) }}" data-confirm="Bu ödeme iptal edilsin mi?">
+            {{ csrf() }}<button class="btn">İptal et</button></form>
+        {% else %}
+          <form method="post" action="{{ url_for('payments.reopen', pay_id=p.id) }}">
+            {{ csrf() }}<button class="btn">Tekrar bekliyor yap</button></form>
+        {% endif %}
+        <form method="post" action="{{ url_for('payments.delete', pay_id=p.id) }}" data-confirm="Ödeme kaydı kalıcı olarak silinsin mi?">
+          {{ csrf() }}<button class="btn danger">Sil</button></form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

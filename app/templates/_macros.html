@@ -1,0 +1,16 @@
+{% macro status_badge(p, today) -%}
+  {%- if p.status == 'paid' -%}<span class="badge paid">Ödendi</span>
+  {%- elif p.status == 'cancelled' -%}<span class="badge cancelled">İptal</span>
+  {%- elif p.due_date and p.due_date < today -%}<span class="badge overdue">Gecikti</span>
+  {%- else -%}<span class="badge pending">Bekliyor</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro lessons_text(p) -%}
+  {%- set parts = [] -%}
+  {%- if p.online_count %}{% set _ = parts.append(p.online_count ~ ' online') %}{% endif -%}
+  {%- if p.inperson_count %}{% set _ = parts.append(p.inperson_count ~ ' yüz yüze') %}{% endif -%}
+  {{- parts | join(' + ') if parts else '—' -}}
+{%- endmacro %}
+
+{% macro csrf() -%}<input type="hidden" name="_csrf" value="{{ csrf_token() }}">{%- endmacro %}

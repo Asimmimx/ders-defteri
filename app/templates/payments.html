@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, lessons_text %}
+{% block title %}Ödemeler{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Ödemeler</h1>
+  <a class="btn primary" href="{{ url_for('payments.new') }}">{{ icon('plus') }} Ödeme ekle</a>
+</div>
+<form class="toolbar" method="get">
+  <div class="tabs">
+    {% for key, label in [('pending', 'Bekleyen'), ('overdue', 'Geciken'), ('paid', 'Ödenen'), ('cancelled', 'İptal'), ('all', 'Tümü')] %}
+      <a href="?durum={{ key }}&q={{ q | urlencode }}" class="{{ 'active' if status == key }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <input type="hidden" name="durum" value="{{ status }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="Veli, öğrenci veya açıklama ara…">
+</form>
+<div class="card">
+  <div class="card-head">
+    <span class="muted">{{ payments | length }} kayıt</span>
+    <strong>Toplam: {{ total | money }}</strong>
+  </div>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Veli / Öğrenci</th><th>Dersler</th><th>{{ 'Ödeme tarihi' if status == 'paid' else 'Son ödeme' }}</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
+    <tbody>
+    {% for p in payments %}
+      <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">
+        <td>
+          <div><span class="dot" style="background:{{ p.color }}"></span><strong>{{ p.parent_name }}</strong></div>
+          <div class="small muted">{{ p.student_name }}{% if p.description %} · {{ p.description }}{% endif %}</div>
+        </td>
+        <td class="small">{{ lessons_text(p) }}</td>
+        <td class="small nowrap">{{ (p.paid_at if p.status == 'paid' else p.due_date) | tarih }}</td>
+        <td class="nowrap">{{ status_badge(p, today) }}
+          {% if p.receipt_path %}<span class="badge info">Dekont</span>{% endif %}
+          {% if p.status == 'pending' and p.reminder_sent_at %}<div class="small muted">Hatırlatıldı</div>{% endif %}</td>
+        <td class="right nowrap"><strong>{{ (p.paid_amount if p.status == 'paid' else p.amount) | money }}</strong></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">Kayıt yok.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

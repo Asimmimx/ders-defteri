@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Veliyi düzenle' if parent else 'Yeni veli' }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    {% if parent %}<a class="small" href="{{ url_for('main.parent_detail', pid=parent.id) }}">← {{ parent.name }}</a>{% else %}<a class="small" href="{{ url_for('main.parents') }}">← Veliler</a>{% endif %}
+    <h1>{{ 'Veliyi düzenle' if parent else 'Yeni veli' }}</h1>
+  </div>
+</div>
+<div class="card" style="max-width:620px">
+  <form method="post">
+    {{ csrf() }}
+    <div class="field">
+      <label for="name">Ad soyad *</label>
+      <input type="text" id="name" name="name" value="{{ form.name or '' }}" required autofocus placeholder="ör. Nurgül Yılmaz">
+    </div>
+    <div class="field">
+      <label for="phone">Telefon</label>
+      <input type="tel" id="phone" name="phone" value="{{ form.phone or '' }}" placeholder="05xx xxx xx xx">
+      <div class="hint">SMS hatırlatma butonu bu numarayı kullanır.</div>
+    </div>
+    <div class="field">
+      <label for="notes">Notlar</label>
+      <textarea id="notes" name="notes">{{ form.notes or '' }}</textarea>
+    </div>
+    {% if parent %}
+    <div class="field">
+      <label for="active">Durum</label>
+      <select id="active" name="active">
+        <option value="1" {{ 'selected' if form.active|string == '1' }}>Aktif</option>
+        <option value="0" {{ 'selected' if form.active|string == '0' }}>Pasif (artık ders almıyor)</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-actions">
+      <button class="btn primary">{{ 'Kaydet' if parent else 'Veliyi ekle' }}</button>
+      <a class="btn" href="{{ url_for('main.parent_detail', pid=parent.id) if parent else url_for('main.parents') }}">Vazgeç</a>
+    </div>
+  </form>
+</div>
+{% if parent %}
+<div class="card" style="max-width:620px">
+  <h3>Veliyi sil</h3>
+  <p class="small muted">Sadece ödeme kaydı olmayan veliler silinebilir. Ödeme geçmişi olanları "Pasif" yapın.</p>
+  <form method="post" action="{{ url_for('main.parent_delete', pid=parent.id) }}" data-confirm="{{ parent.name }} ve öğrencileri silinsin mi?">
+    {{ csrf() }}<button class="btn danger">Sil</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

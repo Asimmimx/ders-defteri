@@ -1,0 +1,64 @@
+{% from "_icons.html" import icon %}
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Ödeme Takip{% endblock %} · Ödeme Takip</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233d6bff'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>₺</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% set ep = request.endpoint or '' %}
+{% set nav = [
+  ('main.dashboard', 'Özet', 'home', ['main.dashboard']),
+  ('main.parents', 'Veliler', 'users', ['main.parent', 'main.student']),
+  ('payments.index', 'Ödemeler', 'wallet', ['payments.']),
+  ('schedule.index', 'Program', 'calendar', ['schedule.']),
+  ('commission.index', 'Komisyon', 'percent', ['commission.']),
+  ('settings.index', 'Ayarlar', 'settings', ['settings.']),
+] %}
+{% macro is_active(prefixes, ep) -%}
+  {%- set ns = namespace(a=false) -%}
+  {%- for p in prefixes %}{% if ep.startswith(p) %}{% set ns.a = true %}{% endif %}{% endfor -%}
+  {{- 'yes' if ns.a else '' -}}
+{%- endmacro %}
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo">₺</span> Ödeme Takip</div>
+    <nav class="nav">
+      {% for endpoint, label, ic, prefixes in nav %}
+        <a href="{{ url_for(endpoint) }}" class="{{ 'active' if is_active(prefixes, ep) }}">{{ icon(ic) }} {{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="user">
+      <div><strong>{{ g.user.full_name or g.user.username }}</strong></div>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button class="link-btn small">Çıkış yap</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<nav class="mobile-nav">
+  {% for endpoint, label, ic, prefixes in nav %}
+    <a href="{{ url_for(endpoint) }}" class="{{ 'active' if is_active(prefixes, ep) }}">{{ icon(ic) }}<span>{{ label }}</span></a>
+  {% endfor %}
+</nav>
+
+<div class="toast" id="toast"></div>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=2"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

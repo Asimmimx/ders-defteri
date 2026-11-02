@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Haftalık program{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Haftalık program</h1>
+    <div class="muted small">Öğrenciyi soldan sürükleyip saate bırakın. Dersleri sürükleyerek taşıyın, çöpe atarak silin, tıklayarak düzenleyin.</div>
+  </div>
+  <div class="form-actions">
+    <button class="btn primary" id="export-png">{{ icon('image') }} PNG indir</button>
+  </div>
+</div>
+
+<div class="sched-layout">
+  <div class="card no-print" style="margin:0">
+    <h3>Öğrenciler</h3>
+    {% if students %}
+    <div class="palette-list" id="palette">
+      {% for s in students %}
+        <div class="pal-item" style="background:{{ s.color }}" data-student="{{ s.id }}" data-name="{{ s.name }}" data-color="{{ s.color }}">
+          {{ s.name }} <small>· {{ s.parent_name }}</small>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin-bottom:0">Telefonda: öğrenciye dokunun, sonra boş bir saate dokunun.</p>
+    <div class="trash" id="trash">Silmek için buraya sürükleyin</div>
+    {% else %}
+    <p class="muted">Aktif öğrenci yok. <a href="{{ url_for('main.parents') }}">Veli ve öğrenci ekleyin →</a></p>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin:0;padding:0;overflow:hidden">
+    <div class="sched-scroll">
+      <div id="schedule-export">
+        <div class="export-title">Haftalık Ders Programı</div>
+        <div class="sched-grid" id="grid"
+             data-start="{{ start }}" data-end="{{ end }}" data-slot="{{ slot }}"
+             style="grid-template-columns: 62px repeat(7, minmax(92px, 1fr));"></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="slot-dialog">
+  <form method="dialog">
+    <div class="dlg-body">
+      <h2 id="dlg-title">Ders</h2>
+      <div class="field">
+        <label>Ders türü</label>
+        <select id="dlg-type">
+          <option value="inperson">Yüz yüze</option>
+          <option value="online">Online</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Not</label>
+        <input type="text" id="dlg-note" maxlength="200" placeholder="ör. Matematik">
+      </div>
+    </div>
+    <div class="dlg-actions">
+      <button value="delete" class="btn danger" style="margin-right:auto">Sil</button>
+      <button value="cancel" class="btn">Vazgeç</button>
+      <button value="save" class="btn primary">Kaydet</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}
+<script>window.DAYS = {{ DAYS | tojson }};</script>
+<script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=2"></script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Öğrenciyi düzenle' if student else 'Yeni öğrenci' }}{% endblock %}
+{% block content %}
+{% set color = form.color or suggested %}
+{% set ctype = form.commission_type or '' %}
+<div class="page-head">
+  <div>
+    <a class="small" href="{{ url_for('main.parent_detail', pid=parent.id) }}">← {{ parent.name }}</a>
+    <h1>{{ 'Öğrenciyi düzenle' if student else 'Yeni öğrenci' }}</h1>
+  </div>
+</div>
+<div class="card" style="max-width:640px">
+  <form method="post">
+    {{ csrf() }}
+    <div class="field">
+      <label for="name">Öğrenci adı *</label>
+      <input type="text" id="name" name="name" value="{{ form.name or '' }}" required autofocus>
+    </div>
+    <div class="field">
+      <label>Program rengi</label>
+      <div class="swatches" data-swatches>
+        {% for c in palette %}
+          <button type="button" class="swatch {{ 'selected' if c == color }}" style="background:{{ c }}" data-color="{{ c }}" aria-label="{{ c }}"></button>
+        {% endfor %}
+        <input type="color" name="color" value="{{ color }}" title="Özel renk">
+      </div>
+      <div class="hint">Haftalık programda bu renkle görünür.</div>
+    </div>
+
+    <h3 style="margin-top:20px">Tarife (ders başı ücret)</h3>
+    <div class="row">
+      <div class="field">
+        <label for="online_price">Online ders</label>
+        <input type="text" inputmode="decimal" id="online_price" name="online_price" value="{{ form.online_price | num }}" placeholder="ör. 1000">
+      </div>
+      <div class="field">
+        <label for="inperson_price">Yüz yüze ders</label>
+        <input type="text" inputmode="decimal" id="inperson_price" name="inperson_price" value="{{ form.inperson_price | num }}" placeholder="ör. 1250">
+      </div>
+    </div>
+
+    <h3 style="margin-top:8px">Asistan komisyonu</h3>
+    <div class="row">
+      <div class="field">
+        <label for="commission_type">Komisyon</label>
+        <select id="commission_type" name="commission_type" data-commission-type>
+          <option value="" {{ 'selected' if not ctype }}>Varsayılanı kullan (Ayarlar)</option>
+          <option value="percent" {{ 'selected' if ctype == 'percent' }}>Bu öğrenciye özel yüzde (%)</option>
+          <option value="fixed" {{ 'selected' if ctype == 'fixed' }}>Bu öğrenciye özel ders başı sabit (₺)</option>
+        </select>
+      </div>
+      <div class="field" data-commission-value {{ 'hidden' if not ctype }}>
+        <label for="commission_value">Değer</label>
+        <input type="text" inputmode="decimal" id="commission_value" name="commission_value" value="{{ form.commission_value | num }}" placeholder="ör. 20">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="notes">Notlar</label>
+      <textarea id="notes" name="notes" placeholder="Sınıf, seviye, konu vb.">{{ form.notes or '' }}</textarea>
+    </div>
+    {% if student %}
+    <div class="field">
+      <label for="active">Durum</label>
+      <select id="active" name="active">
+        <option value="1" {{ 'selected' if form.active|string == '1' }}>Aktif</option>
+        <option value="0" {{ 'selected' if form.active|string == '0' }}>Pasif (programda görünmez)</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="form-actions">
+      <button class="btn primary">{{ 'Kaydet' if student else 'Öğrenciyi ekle' }}</button>
+      <a class="btn" href="{{ url_for('main.parent_detail', pid=parent.id) }}">Vazgeç</a>
+    </div>
+  </form>
+</div>
+{% if student %}
+<div class="card" style="max-width:640px">
+  <h3>Öğrenciyi sil</h3>
+  <p class="small muted">Ödeme kaydı olan öğrenciler silinemez; "Pasif" yapın.</p>
+  <form method="post" action="{{ url_for('main.student_delete', sid=student.id) }}" data-confirm="{{ student.name }} silinsin mi? Programdaki dersleri de silinir.">
+    {{ csrf() }}<button class="btn danger">Sil</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
