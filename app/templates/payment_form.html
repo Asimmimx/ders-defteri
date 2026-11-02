@@ -25,14 +25,14 @@
         <input type="text" value="{{ payment.student_name }} ({{ payment.parent_name }})" disabled>
         <select id="student_id" hidden>
           <option value="{{ payment.student_id }}" selected
-            data-online="{{ payment.online_price }}" data-inperson="{{ payment.inperson_price }}"></option>
+            data-online="{{ payment.online_unit or payment.online_price }}" data-inperson="{{ payment.inperson_unit or payment.inperson_price }}"></option>
         </select>
       {% else %}
       <select id="student_id" name="student_id" required>
         <option value="">Seçin…</option>
         {% for s in students %}
           <option value="{{ s.id }}" data-online="{{ s.online_price }}" data-inperson="{{ s.inperson_price }}" {{ 'selected' if s.id == selected }}>
-            {{ s.name }} — {{ s.parent_name }} (Online {{ s.online_price | money }} / Yüz yüze {{ s.inperson_price | money }})
+            {{ s.name }} — {{ s.parent_name }} (Online {{ s.online_price | money }} / Yüz yüze {{ s.inperson_price | money }} saatlik)
           </option>
         {% endfor %}
       </select>
@@ -41,13 +41,13 @@
 
     <div class="row">
       <div class="field">
-        <label for="online_count">Online ders sayısı</label>
-        <input type="number" min="0" step="1" id="online_count" name="online_count" value="{{ form.online_count or 0 }}">
+        <label for="online_count">Online ders (saat)</label>
+        <input type="text" inputmode="decimal" id="online_count" name="online_count" value="{{ form.online_count | qty }}" placeholder="ör. 1,5">
         <div class="hint" data-price-online></div>
       </div>
       <div class="field">
-        <label for="inperson_count">Yüz yüze ders sayısı</label>
-        <input type="number" min="0" step="1" id="inperson_count" name="inperson_count" value="{{ form.inperson_count or 0 }}">
+        <label for="inperson_count">Yüz yüze ders (saat)</label>
+        <input type="text" inputmode="decimal" id="inperson_count" name="inperson_count" value="{{ form.inperson_count | qty }}" placeholder="ör. 1,5">
         <div class="hint" data-price-inperson></div>
       </div>
     </div>
@@ -55,7 +55,7 @@
     <div class="row">
       <div class="field">
         <label for="amount">Toplam tutar (₺) *</label>
-        <input type="text" inputmode="decimal" id="amount" name="amount" value="{{ form.amount | num }}" placeholder="Ders sayısından otomatik hesaplanır" data-amount>
+        <input type="text" inputmode="decimal" id="amount" name="amount" value="{{ form.amount | num }}" placeholder="Ders saatinden otomatik hesaplanır" data-amount>
         <div class="hint">Otomatik hesaplanır; indirim vb. için elle değiştirebilirsiniz.</div>
       </div>
       <div class="field">

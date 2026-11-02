@@ -39,8 +39,12 @@ CREATE TABLE IF NOT EXISTS payments (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id        INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
     description       TEXT NOT NULL DEFAULT '',
-    online_count      INTEGER NOT NULL DEFAULT 0,
-    inperson_count    INTEGER NOT NULL DEFAULT 0,
+    -- saat cinsinden, küsuratlı olabilir (ör. 1.5)
+    online_count      REAL NOT NULL DEFAULT 0,
+    inperson_count    REAL NOT NULL DEFAULT 0,
+    -- ödeme oluşturulurken geçerli olan saat ücretleri
+    online_unit       REAL NOT NULL DEFAULT 0,
+    inperson_unit     REAL NOT NULL DEFAULT 0,
     amount            REAL NOT NULL,
     due_date          TEXT,
     status            TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'cancelled')),
@@ -83,6 +87,17 @@ CREATE TABLE IF NOT EXISTS message_templates (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     body TEXT NOT NULL
+);
+
+-- Ortak notlar
+CREATE TABLE IF NOT EXISTS notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    body       TEXT NOT NULL,
+    pinned     INTEGER NOT NULL DEFAULT 0,
+    done       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+    updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS settings (

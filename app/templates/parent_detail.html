@@ -61,7 +61,7 @@
   <h2>Ödeme geçmişi</h2>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Öğrenci</th><th>Dersler</th><th>Son ödeme / Ödendi</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
+    <thead><tr><th>Öğrenci</th><th>Ders saati</th><th>Son ödeme / Ödendi</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
     <tbody>
     {% for p in payments %}
       <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">

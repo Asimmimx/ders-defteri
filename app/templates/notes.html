@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Notlar{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Notlar</h1>
+    <div class="muted small">Enes Hoca ile ortak notlar. Herkes ekleyebilir, düzenleyebilir ve tamamlandı işaretleyebilir.</div>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('notes.create') }}">
+    {{ csrf() }}
+    <div class="field" style="margin-bottom:10px">
+      <textarea name="body" rows="3" placeholder="Yeni not yazın… (ör. Ali'nin cuma dersi 16:00'ya alındı)" required></textarea>
+    </div>
+    <div class="form-actions" style="justify-content:space-between;align-items:center">
+      <label class="check"><input type="checkbox" name="pinned" value="1"> Üste sabitle</label>
+      <button class="btn primary">{{ icon('plus') }} Not ekle</button>
+    </div>
+  </form>
+</div>
+
+<div class="toolbar">
+  <div class="tabs">
+    <a href="?goster=acik" class="{{ 'active' if show == 'acik' }}">Açık</a>
+    <a href="?goster=tamam" class="{{ 'active' if show == 'tamam' }}">Tamamlanan</a>
+    <a href="?goster=tumu" class="{{ 'active' if show == 'tumu' }}">Tümü</a>
+  </div>
+</div>
+
+{% for n in notes %}
+  <div class="card note {{ 'pinned' if n.pinned }} {{ 'done' if n.done }}">
+    <div class="note-meta">
+      <span><strong>{{ n.author }}</strong> · {{ n.created_at | tarihsaat }}{% if n.updated_at %} <span class="muted">(düzenlendi)</span>{% endif %}</span>
+      <span>
+        {% if n.pinned %}<span class="badge info">Sabit</span>{% endif %}
+        {% if n.done %}<span class="badge paid">Tamamlandı</span>{% endif %}
+      </span>
+    </div>
+    <div class="note-body">{{ n.body }}</div>
+    <details class="box">
+      <summary class="small muted">Düzenle</summary>
+      <form method="post" action="{{ url_for('notes.edit', nid=n.id) }}" style="margin-top:8px">
+        {{ csrf() }}
+        <div class="field"><textarea name="body" rows="3" required>{{ n.body }}</textarea></div>
+        <button class="btn primary sm">Kaydet</button>
+      </form>
+    </details>
+    <div class="form-actions" style="margin-top:6px">
+      <form method="post" action="{{ url_for('notes.toggle', nid=n.id, action='tamamla') }}" class="inline">
+        {{ csrf() }}<button class="btn sm">{{ icon('check') }} {{ 'Tekrar aç' if n.done else 'Tamamlandı' }}</button></form>
+      <form method="post" action="{{ url_for('notes.toggle', nid=n.id, action='sabitle') }}" class="inline">
+        {{ csrf() }}<button class="btn sm">{{ 'Sabitlemeyi kaldır' if n.pinned else 'Sabitle' }}</button></form>
+      <form method="post" action="{{ url_for('notes.toggle', nid=n.id, action='sil') }}" class="inline" data-confirm="Not silinsin mi?">
+        {{ csrf() }}<button class="btn sm danger">Sil</button></form>
+    </div>
+  </div>
+{% else %}
+  <div class="card"><p class="empty">{{ 'Açık not yok.' if show == 'acik' else 'Not yok.' }}</p></div>
+{% endfor %}
+{% endblock %}

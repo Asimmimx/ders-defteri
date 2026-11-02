@@ -81,6 +81,7 @@ def create_app():
     app.jinja_env.filters.update(
         money=utils.money,
         num=utils.num,
+        qty=utils.qty,
         tarih=utils.fmt_date,
         tarihsaat=utils.fmt_datetime,
     )
@@ -91,8 +92,9 @@ def create_app():
     from .commission import bp as commission_bp
     from .schedule import bp as schedule_bp
     from .settings import bp as settings_bp
+    from .notes import bp as notes_bp
 
-    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, settings_bp):
+    for bp in (auth_bp, main_bp, payments_bp, commission_bp, schedule_bp, notes_bp, settings_bp):
         app.register_blueprint(bp)
 
     from flask import render_template

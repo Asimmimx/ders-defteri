@@ -8,7 +8,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>{% block title %}Ödeme Takip{% endblock %} · Ödeme Takip</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233d6bff'/><text x='16' y='23' font-size='18' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>₺</text></svg>">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=2">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -19,6 +19,7 @@
   ('payments.index', 'Ödemeler', 'wallet', ['payments.']),
   ('schedule.index', 'Program', 'calendar', ['schedule.']),
   ('commission.index', 'Komisyon', 'percent', ['commission.']),
+  ('notes.index', 'Notlar', 'note', ['notes.']),
   ('settings.index', 'Ayarlar', 'settings', ['settings.']),
 ] %}
 {% macro is_active(prefixes, ep) -%}
@@ -58,7 +59,7 @@
 </nav>
 
 <div class="toast" id="toast"></div>
-<script src="{{ url_for('static', filename='js/app.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

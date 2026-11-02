@@ -51,6 +51,33 @@ def parse_money(text, default=0.0):
         return default
 
 
+def parse_hours(text, default=0.0):
+    """'1,5' / '1.5' / '2' -> saat (float, en fazla 2 ondalık)"""
+    s = str(text or "").strip().replace(",", ".")
+    if not s:
+        return default
+    try:
+        v = round(float(s), 2)
+    except ValueError:
+        return default
+    return v if v >= 0 else default
+
+
+def qty(value):
+    """1.5 -> '1,5', 2.0 -> '2'"""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        return str(value)
+    s = f"{v:.2f}".rstrip("0").rstrip(".")
+    return s.replace(".", ",")
+
+
+def money_text(value):
+    """SMS için: 3200 -> '3.200 TL'"""
+    return money(value).replace(" ₺", " TL")
+
+
 def parse_int(text, default=0):
     try:
         return int(str(text).strip())
@@ -103,12 +130,12 @@ def normalize_phone(phone):
 def compute_commission(amount, total_lessons, ctype, cvalue):
     cvalue = float(cvalue or 0)
     if ctype == "fixed":
-        return round(cvalue * int(total_lessons or 0), 2)
+        return round(cvalue * float(total_lessons or 0), 2)
     return round(float(amount or 0) * cvalue / 100.0, 2)
 
 
 def commission_label(ctype, cvalue):
     if ctype == "fixed":
-        return f"Ders başı {money(cvalue)}"
+        return f"Saat başı {money(cvalue)}"
     v = float(cvalue or 0)
     return f"%{v:g}"

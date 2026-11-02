@@ -24,7 +24,7 @@
       <dl class="info" style="margin-top:12px">
         <dt>Veli</dt><dd><a href="{{ url_for('main.parent_detail', pid=p.parent_id) }}">{{ p.parent_name }}</a></dd>
         <dt>Telefon</dt><dd>{% if p.parent_phone %}<a href="tel:{{ p.parent_phone }}">{{ p.parent_phone }}</a>{% else %}—{% endif %}</dd>
-        <dt>Dersler</dt><dd>{{ lessons_text(p) }}</dd>
+        <dt>Ders saati</dt><dd>{{ lessons_text(p) }}</dd>
         <dt>Tahakkuk</dt><dd>{{ p.amount | money }}</dd>
         <dt>Son ödeme</dt><dd>{{ p.due_date | tarih }}</dd>
         <dt>Oluşturulma</dt><dd>{{ p.created_at | tarihsaat }}</dd>
@@ -33,7 +33,7 @@
           <dt>Ödeme tarihi</dt><dd>{{ p.paid_at | tarih }}</dd>
           <dt>Yöntem</dt><dd>{{ p.method or '—' }}</dd>
           <dt>Komisyonum</dt><dd style="color:var(--success)">{{ p.commission_amount | money }}
-            <span class="small muted">({{ 'Ders başı ' ~ (p.commission_value | money) if p.commission_type == 'fixed' else '%' ~ (p.commission_value | num) }})</span></dd>
+            <span class="small muted">({{ 'Saat başı ' ~ (p.commission_value | money) if p.commission_type == 'fixed' else '%' ~ (p.commission_value | num) }})</span></dd>
         {% endif %}
         {% if p.notes %}<dt>Not</dt><dd style="white-space:pre-wrap">{{ p.notes }}</dd>{% endif %}
       </dl>
@@ -75,7 +75,7 @@
         </div>
         {% endif %}
         {% for m in messages %}<template data-tpl-text="{{ loop.index0 }}">{{ m.text }}</template>{% endfor %}
-        <textarea data-msg rows="5">{{ messages[0].text }}</textarea>
+        <textarea data-msg rows="10">{{ messages[0].text }}</textarea>
         <div class="form-actions">
           <button type="button" class="btn primary" data-copy>{{ icon('copy') }} Kopyala</button>
           {% if phone %}

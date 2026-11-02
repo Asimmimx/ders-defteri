@@ -12,17 +12,27 @@ DEFAULT_SETTINGS = {
     "backup_limit_mb": "100",
 }
 
+PAYMENT_TEMPLATE = (
+    "Merhaba {veli}\n"
+    "Ödeme bilgisi için sizlere ulaşıyorum\n"
+    "\n"
+    "{ders_listesi}\n"
+    "Toplam {tutar} ödeme göndermeniz uygundur\n"
+    "Ödemeyi gönderdikten sonra dekont gönderirseniz sevinirim\n"
+    "\n"
+    "Teşekkür ederim🙏"
+)
+
 DEFAULT_TEMPLATES = [
-    (
-        "Ödeme hatırlatma",
-        "Merhaba {veli}, {ogrenci} için {ders_sayisi} dersin ücreti olan {tutar} "
-        "ödemesini hatırlatmak isteriz. Son ödeme tarihi: {son_odeme}. İyi günler dileriz.",
-    ),
-    (
-        "Kısa hatırlatma",
-        "Merhaba {veli}, {ogrenci} ders ücreti: {tutar}. Teşekkürler.",
-    ),
+    ("Ödeme bilgisi", PAYMENT_TEMPLATE),
+    ("Kısa hatırlatma", "Merhaba {veli}, {ogrenci} ders ücreti: {tutar}. Teşekkürler."),
 ]
+
+# Eski sürümün varsayılan taslağı (değiştirilmemişse yenisiyle güncellenir)
+OLD_DEFAULT_BODY = (
+    "Merhaba {veli}, {ogrenci} için {ders_sayisi} dersin ücreti olan {tutar} "
+    "ödemesini hatırlatmak isteriz. Son ödeme tarihi: {son_odeme}. İyi günler dileriz."
+)
 
 
 def connect(path):
@@ -54,8 +64,26 @@ def init_db(path):
         conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
     if conn.execute("SELECT COUNT(*) FROM message_templates").fetchone()[0] == 0:
         conn.executemany("INSERT INTO message_templates(name, body) VALUES (?, ?)", DEFAULT_TEMPLATES)
+    _migrate(conn)
     conn.commit()
     conn.close()
+
+
+def _migrate(conn):
+    """Eski veritabanlarını güncel şemaya getirir."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(payments)")}
+    if "online_unit" not in cols:
+        conn.execute("ALTER TABLE payments ADD COLUMN online_unit REAL NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE payments ADD COLUMN inperson_unit REAL NOT NULL DEFAULT 0")
+        conn.execute(
+            """UPDATE payments SET
+                 online_unit = (SELECT online_price FROM students s WHERE s.id = payments.student_id),
+                 inperson_unit = (SELECT inperson_price FROM students s WHERE s.id = payments.student_id)"""
+        )
+    conn.execute(
+        "UPDATE message_templates SET name = ?, body = ? WHERE body = ?",
+        ("Ödeme bilgisi", PAYMENT_TEMPLATE, OLD_DEFAULT_BODY),
+    )
 
 
 def get_settings():

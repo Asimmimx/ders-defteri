@@ -8,8 +8,8 @@
 
 {% macro lessons_text(p) -%}
   {%- set parts = [] -%}
-  {%- if p.online_count %}{% set _ = parts.append(p.online_count ~ ' online') %}{% endif -%}
-  {%- if p.inperson_count %}{% set _ = parts.append(p.inperson_count ~ ' yüz yüze') %}{% endif -%}
+  {%- if p.online_count %}{% set _ = parts.append(p.online_count | qty ~ ' saat online') %}{% endif -%}
+  {%- if p.inperson_count %}{% set _ = parts.append(p.inperson_count | qty ~ ' saat yüz yüze') %}{% endif -%}
   {{- parts | join(' + ') if parts else '—' -}}
 {%- endmacro %}
 

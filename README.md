@@ -7,14 +7,15 @@
 ## Özellikler
 
 - **Giriş zorunlu** — oturum açmadan hiçbir sayfa görünmez; kaba kuvvet denemelerine karşı kilit, CSRF koruması.
-- **Veliler ve öğrenciler** — bir veliye birden fazla çocuk; her çocuğa renk ve kendi tarifesi (online / yüz yüze ders başı ücret).
-- **Ödemeler** — ders sayısı girilince tutar tarifeden otomatik hesaplanır (elle değiştirilebilir), son ödeme tarihi, gecikme takibi.
+- **Veliler ve öğrenciler** — bir veliye birden fazla çocuk; her çocuğa renk ve kendi tarifesi (online / yüz yüze saatlik ücret).
+- **Ödemeler** — ders saati girilince (küsuratlı olabilir, ör. 1,5) tutar tarifeden otomatik hesaplanır (elle değiştirilebilir), son ödeme tarihi, gecikme takibi. Ödeme anındaki saat ücreti kayda yazılır; tarife sonradan değişse de eski kayıtlar bozulmaz.
 - **SMS hatırlatma** — tek tıkla hazır mesaj: kopyala, telefonun SMS uygulamasında veya WhatsApp'ta aç. Taslaklar Ayarlar'dan düzenlenir
-  (`{veli}`, `{ogrenci}`, `{tutar}`, `{ders_sayisi}`, `{ders_detay}`, `{son_odeme}`, `{aciklama}`).
+  (`{veli}`, `{ogrenci}`, `{tutar}`, `{ders_listesi}`, `{ders_sayisi}`, `{ders_detay}`, `{son_odeme}`, `{aciklama}`).
 - **Dekont yükleme** — ödeme tamamlanırken resim/PDF dekont eklenir; sadece giriş yapmış kullanıcılar görebilir.
-- **Asistan komisyonu** — varsayılan olarak yüzde veya ders başı sabit tutar; öğrenciye özel komisyon tanımlanabilir.
+- **Asistan komisyonu** — varsayılan olarak yüzde veya saat başı sabit tutar; öğrenciye özel komisyon tanımlanabilir.
   Komisyon sayfasında kazanılan, size ödenen ve kalan bakiye; size ödeme yapıldığında bakiyeden düşülür.
-- **Haftalık program** — öğrenciyi sürükleyip saate bırakın (telefonda dokun-dokun), günlük doluluk oranı ve müsait günler, **PNG olarak indir**.
+- **Notlar** — kullanıcılar arasında ortak notlar; sabitleme, tamamlandı işaretleme.
+- **Haftalık program** — eklenecek ders türünü (yüz yüze / online) seçip öğrenciyi sürükleyip saate bırakın (telefonda dokun-dokun), günlük doluluk oranı ve müsait günler, **PNG olarak indir**.
 - **Haftalık yedek** — her pazar 03:00'te veritabanı yedeği; toplam 100 MB'ı aşınca en eski yedekler silinir. Ayarlar'dan elle yedek alınıp indirilebilir.
 
 ## Yerelde çalıştırma

@@ -28,7 +28,7 @@
       <div class="hint">Haftalık programda bu renkle görünür.</div>
     </div>
 
-    <h3 style="margin-top:20px">Tarife (ders başı ücret)</h3>
+    <h3 style="margin-top:20px">Tarife (saatlik ücret)</h3>
     <div class="row">
       <div class="field">
         <label for="online_price">Online ders</label>
@@ -47,7 +47,7 @@
         <select id="commission_type" name="commission_type" data-commission-type>
           <option value="" {{ 'selected' if not ctype }}>Varsayılanı kullan (Ayarlar)</option>
           <option value="percent" {{ 'selected' if ctype == 'percent' }}>Bu öğrenciye özel yüzde (%)</option>
-          <option value="fixed" {{ 'selected' if ctype == 'fixed' }}>Bu öğrenciye özel ders başı sabit (₺)</option>
+          <option value="fixed" {{ 'selected' if ctype == 'fixed' }}>Bu öğrenciye özel saat başı sabit (₺)</option>
         </select>
       </div>
       <div class="field" data-commission-value {{ 'hidden' if not ctype }}>

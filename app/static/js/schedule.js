@@ -40,7 +40,7 @@
         html += `<div class="cell ${here.length ? "" : "empty-cell"}" data-day="${d}" data-min="${t}">`;
         for (const s of here) {
           const type = s.lesson_type === "online" ? "Online" : "Yüz yüze";
-          html += `<div class="lesson" style="background:${esc(s.color)}" data-id="${s.id}">${esc(s.student_name)}
+          html += `<div class="lesson ${s.lesson_type === "online" ? "online" : ""}" style="background:${esc(s.color)}" data-id="${s.id}">${esc(s.student_name)}
             <span class="ltype">${type}${s.note ? " · " + esc(s.note) : ""}</span></div>`;
         }
         html += "</div>";
@@ -60,7 +60,8 @@
     const total = slots.length;
     const busy = new Set(slots.map((s) => `${s.day}-${s.start_min}`)).size;
     const cap = times.length * 7;
-    let html = `<span class="muted">Toplam ${total} ders · Haftalık doluluk %${Math.round((busy / cap) * 100)}</span>`;
+    const onlineCount = slots.filter((s) => s.lesson_type === "online").length;
+    let html = `<span class="muted">Toplam ${total} ders (${total - onlineCount} yüz yüze, ${onlineCount} online) · Haftalık doluluk %${Math.round((busy / cap) * 100)}</span>`;
     for (const e of by.values()) {
       html += `<span><span class="dot" style="background:${esc(e.color)}"></span>${esc(e.name)} (${e.count})</span>`;
     }
@@ -80,9 +81,10 @@
   // ---------------------------------------------------------- işlemler
   async function createSlot(studentId, day, min) {
     try {
-      await App.api("/api/program", "POST", { student_id: studentId, day, start_min: min });
+      const type = document.querySelector('input[name="new_type"]:checked')?.value || "inperson";
+      await App.api("/api/program", "POST", { student_id: studentId, day, start_min: min, lesson_type: type });
       await load();
-      App.toast("Ders eklendi");
+      App.toast(type === "online" ? "Online ders eklendi" : "Yüz yüze ders eklendi");
     } catch (e) { App.toast(e.message); }
   }
 
@@ -257,6 +259,16 @@
       btn.disabled = false;
     }
   });
+
+  // Ders türü seçimini hatırla
+  try {
+    const saved = localStorage.getItem("odeme_new_type");
+    const r = saved && document.querySelector(`input[name="new_type"][value="${saved}"]`);
+    if (r) r.checked = true;
+  } catch (_) { /* depolama kapalı olabilir */ }
+  document.querySelectorAll('input[name="new_type"]').forEach((r) => r.addEventListener("change", () => {
+    try { localStorage.setItem("odeme_new_type", r.value); } catch (_) { /* yok say */ }
+  }));
 
   load();
 })();

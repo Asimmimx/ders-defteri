@@ -1,0 +1,22 @@
+<div class="stats">
+  <a class="stat" href="{{ url_for('payments.index', durum='pending') }}" style="text-decoration:none;color:inherit">
+    <div class="label">Bekleyen ödemeler</div>
+    <div class="value">{{ stats.pending.s | money }}</div>
+    <div class="sub">{{ stats.pending.c }} kayıt</div>
+  </a>
+  <a class="stat" href="{{ url_for('payments.index', durum='overdue') }}" style="text-decoration:none;color:inherit">
+    <div class="label">Geciken</div>
+    <div class="value" style="color:var(--danger)">{{ stats.overdue.s | money }}</div>
+    <div class="sub">{{ stats.overdue.c }} kayıt, son ödeme tarihi geçti</div>
+  </a>
+  <a class="stat" href="{{ url_for('payments.index', durum='paid') }}" style="text-decoration:none;color:inherit">
+    <div class="label">Bu ay tahsil edilen</div>
+    <div class="value" style="color:var(--success)">{{ stats.collected | money }}</div>
+    <div class="sub">Bu ayki komisyonum: {{ stats.month_commission | money }}</div>
+  </a>
+  <a class="stat accent" href="{{ url_for('commission.index') }}" style="text-decoration:none">
+    <div class="label">Komisyon bakiyem</div>
+    <div class="value">{{ stats.balance | money }}</div>
+    <div class="sub">Henüz bana ödenmemiş tutar →</div>
+  </a>
+</div>

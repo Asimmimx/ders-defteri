@@ -6,9 +6,10 @@
   <h1>Ödemeler</h1>
   <a class="btn primary" href="{{ url_for('payments.new') }}">{{ icon('plus') }} Ödeme ekle</a>
 </div>
+{% include "_stats.html" %}
 <form class="toolbar" method="get">
   <div class="tabs">
-    {% for key, label in [('pending', 'Bekleyen'), ('overdue', 'Geciken'), ('paid', 'Ödenen'), ('cancelled', 'İptal'), ('all', 'Tümü')] %}
+    {% for key, label in [('all', 'Tümü'), ('pending', 'Bekleyen'), ('overdue', 'Geciken'), ('paid', 'Ödenen'), ('cancelled', 'İptal')] %}
       <a href="?durum={{ key }}&q={{ q | urlencode }}" class="{{ 'active' if status == key }}">{{ label }}</a>
     {% endfor %}
   </div>
@@ -22,7 +23,7 @@
   </div>
   <div class="table-wrap">
   <table>
-    <thead><tr><th>Veli / Öğrenci</th><th>Dersler</th><th>{{ 'Ödeme tarihi' if status == 'paid' else 'Son ödeme' }}</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
+    <thead><tr><th>Veli / Öğrenci</th><th>Ders saati</th><th>{{ 'Ödeme tarihi' if status == 'paid' else 'Son ödeme' }}</th><th>Durum</th><th class="right">Tutar</th></tr></thead>
     <tbody>
     {% for p in payments %}
       <tr class="clickable" data-href="{{ url_for('payments.detail', pay_id=p.id) }}">

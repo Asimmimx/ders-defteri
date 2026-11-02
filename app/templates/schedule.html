@@ -13,8 +13,13 @@
 
 <div class="sched-layout">
   <div class="card no-print" style="margin:0">
-    <h3>Öğrenciler</h3>
     {% if students %}
+    <h3>Eklenecek ders türü</h3>
+    <div class="type-toggle" id="type-toggle">
+      <label><input type="radio" name="new_type" value="inperson" checked> Yüz yüze</label>
+      <label><input type="radio" name="new_type" value="online"> Online</label>
+    </div>
+    <h3 style="margin-top:14px">Öğrenciler</h3>
     <div class="palette-list" id="palette">
       {% for s in students %}
         <div class="pal-item" style="background:{{ s.color }}" data-student="{{ s.id }}" data-name="{{ s.name }}" data-color="{{ s.color }}">
@@ -69,5 +74,5 @@
 {% block scripts %}
 <script>window.DAYS = {{ DAYS | tojson }};</script>
 <script src="{{ url_for('static', filename='vendor/html2canvas.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/schedule.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/schedule.js') }}?v=3"></script>
 {% endblock %}

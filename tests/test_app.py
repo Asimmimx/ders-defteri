@@ -136,20 +136,52 @@ class AppFlowTest(unittest.TestCase):
         r = self.c.post(f"/veliler/{pid}/sil", data={"_csrf": t}, follow_redirects=True)
         self.assertIn("Pasif", r.get_data(as_text=True))
 
+        # Küsuratlı saat: 1,5 saat online + 1 saat yüz yüze = 1500 + 1250 = 2750
+        r = self.c.post("/odemeler/yeni", data={"_csrf": t, "student_id": st["id"], "online_count": "1,5",
+                                                 "inperson_count": "1", "amount": ""})
+        pay3 = int(r.headers["Location"].rsplit("/", 1)[1])
+        with self.db() as conn:
+            row = conn.execute("SELECT * FROM payments WHERE id = ?", (pay3,)).fetchone()
+        self.assertEqual((row["online_count"], row["amount"], row["online_unit"]), (1.5, 2750, 1000))
+        html = self.c.get(f"/odemeler/{pay3}").get_data(as_text=True)
+        self.assertIn("1,5 saat online(1,5x1000)", html)
+        self.assertIn("1 saat yüz yüze(1x1250)", html)
+        self.assertIn("Toplam 2.750 TL ödeme göndermeniz uygundur", html)
+        # Tarife değişse de eski ödemenin birim fiyatı korunur
+        self.c.post(f"/ogrenciler/{st['id']}/duzenle", data={"_csrf": t, "name": "Ali", "online_price": "2000",
+                                                              "inperson_price": "1250", "active": "1"})
+        self.assertIn("1,5x1000", self.c.get(f"/odemeler/{pay3}").get_data(as_text=True))
+
+        # Ödemeler varsayılan "Tümü" + özet kartları
+        html = self.c.get("/odemeler").get_data(as_text=True)
+        self.assertIn("Komisyon bakiyem", html)
+        self.assertIn('class="active">Tümü', html)
+
+        # Notlar
+        self.c.post("/notlar", data={"_csrf": t, "body": "Cuma dersi 16:00'ya alındı", "pinned": "1"})
+        html = self.c.get("/notlar").get_data(as_text=True)
+        self.assertIn("Cuma dersi 16:00", html)
+        with self.db() as conn:
+            nid = conn.execute("SELECT id FROM notes").fetchone()[0]
+        self.c.post(f"/notlar/{nid}/tamamla", data={"_csrf": t})
+        self.assertNotIn("Cuma dersi", self.c.get("/notlar").get_data(as_text=True))
+        self.assertIn("Cuma dersi", self.c.get("/notlar?goster=tamam").get_data(as_text=True))
+
         # Program API
         h = {"X-CSRF-Token": t}
-        r = self.c.post("/api/program", json={"student_id": st["id"], "day": 0, "start_min": 600}, headers=h)
+        r = self.c.post("/api/program", json={"student_id": st["id"], "day": 0, "start_min": 600,
+                                              "lesson_type": "online"}, headers=h)
         self.assertEqual(r.status_code, 201)
         sid = r.get_json()["id"]
         self.assertEqual(self.c.patch(f"/api/program/{sid}", json={"day": 2, "start_min": 660}, headers=h).status_code, 200)
         self.assertEqual(self.c.post("/api/program", json={"student_id": st["id"], "day": 0, "start_min": 60}, headers=h).status_code, 400)
         slots = self.c.get("/api/program").get_json()["slots"]
-        self.assertEqual((slots[0]["day"], slots[0]["start_min"]), (2, 660))
+        self.assertEqual((slots[0]["day"], slots[0]["start_min"], slots[0]["lesson_type"]), (2, 660, "online"))
         self.assertEqual(self.c.delete(f"/api/program/{sid}", headers=h).status_code, 200)
 
         # Tüm sayfalar açılıyor
         for path in ["/", "/veliler", f"/veliler/{pid}", "/odemeler", "/odemeler?durum=paid", "/odemeler/yeni",
-                     f"/odemeler/{pay_id}/duzenle", "/program", "/komisyon", "/ayarlar",
+                     f"/odemeler/{pay_id}/duzenle", "/program", "/komisyon", "/ayarlar", "/notlar",
                      f"/ogrenciler/{st['id']}/duzenle", f"/veliler/{pid}/duzenle"]:
             self.assertEqual(self.c.get(path).status_code, 200, path)
 

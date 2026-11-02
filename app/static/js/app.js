@@ -39,6 +39,10 @@
       const r = Math.round(v * 100) / 100;
       return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(".", ",");
     },
+    hours(text) {
+      const v = parseFloat(String(text || "").replace(",", "."));
+      return isFinite(v) && v > 0 ? v : 0;
+    },
     money(v) {
       return (Math.round(v * 100) / 100).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " ₺";
     },
@@ -98,9 +102,9 @@
     };
     const recalc = (force) => {
       const p = prices();
-      $("[data-price-online]", pform).textContent = p.on ? `Ders başı ${App.money(p.on)}` : "";
-      $("[data-price-inperson]", pform).textContent = p.inp ? `Ders başı ${App.money(p.inp)}` : "";
-      const total = (parseInt(on.value) || 0) * p.on + (parseInt(inp.value) || 0) * p.inp;
+      $("[data-price-online]", pform).textContent = p.on ? `Saatlik ${App.money(p.on)}` : "";
+      $("[data-price-inperson]", pform).textContent = p.inp ? `Saatlik ${App.money(p.inp)}` : "";
+      const total = App.hours(on.value) * p.on + App.hours(inp.value) * p.inp;
       if ((!manual || force) && total > 0) amount.value = App.num(total);
     };
     amount.addEventListener("input", () => { manual = amount.value.trim() !== ""; });
@@ -159,7 +163,7 @@
       if (manual) return;
       const v = App.parseMoney(paid.value);
       const cv = parseFloat(comp.dataset.cvalue) || 0;
-      const val = comp.dataset.ctype === "fixed" ? cv * (parseInt(comp.dataset.lessons) || 0) : (v || 0) * cv / 100;
+      const val = comp.dataset.ctype === "fixed" ? cv * (parseFloat(comp.dataset.lessons) || 0) : (v || 0) * cv / 100;
       com.value = App.num(val);
     });
   }

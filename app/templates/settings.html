@@ -15,7 +15,7 @@
           <label for="commission_type">Hesaplama</label>
           <select id="commission_type" name="commission_type">
             <option value="percent" {{ 'selected' if s.commission_type == 'percent' }}>Yüzde (ödeme tutarının %'si)</option>
-            <option value="fixed" {{ 'selected' if s.commission_type == 'fixed' }}>Ders başı sabit tutar (₺)</option>
+            <option value="fixed" {{ 'selected' if s.commission_type == 'fixed' }}>Saat başı sabit tutar (₺)</option>
           </select>
         </div>
         <div class="field">
@@ -58,7 +58,7 @@
 
 <div class="card" id="taslaklar">
   <h2>SMS / mesaj taslakları</h2>
-  <p class="small muted">Kullanılabilir alanlar: <code>{veli}</code> <code>{ogrenci}</code> <code>{tutar}</code> <code>{ders_sayisi}</code> <code>{ders_detay}</code> (ör. "2 online + 1 yüz yüze") <code>{son_odeme}</code> <code>{aciklama}</code></p>
+  <p class="small muted">Kullanılabilir alanlar: <code>{ders_listesi}</code> (her ders türü ayrı satır, ör. "2 saat online(2x1000)") <code>{veli}</code> <code>{ogrenci}</code> <code>{tutar}</code> <code>{ders_sayisi}</code> <code>{ders_detay}</code> (ör. "2 saat online + 1 saat yüz yüze") <code>{son_odeme}</code> <code>{aciklama}</code></p>
   {% for t in templates %}
     <details class="box" style="border-bottom:1px solid var(--line);padding:8px 0">
       <summary>{{ t.name }}</summary>

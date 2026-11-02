@@ -17,9 +17,8 @@ def commission_balance(db):
     return earned, paid_out, round(earned - paid_out, 2)
 
 
-@bp.route("/")
-def dashboard():
-    db = get_db()
+def summary_stats(db):
+    """Özet kartları (ana sayfa ve ödemeler sayfası)."""
     today = today_iso()
     month = today[:7]
     pending = db.execute(
@@ -38,6 +37,15 @@ def dashboard():
         (month,),
     ).fetchone()[0]
     _, _, balance = commission_balance(db)
+    return dict(pending=pending, overdue=overdue, collected=collected,
+                month_commission=month_commission, balance=balance)
+
+
+@bp.route("/")
+def dashboard():
+    db = get_db()
+    today = today_iso()
+    stats = summary_stats(db)
     upcoming = db.execute(
         """SELECT p.*, s.name student_name, s.color, pa.name parent_name, pa.id parent_id
            FROM payments p JOIN students s ON s.id = p.student_id JOIN parents pa ON pa.id = s.parent_id
@@ -49,14 +57,17 @@ def dashboard():
            FROM payments p JOIN students s ON s.id = p.student_id JOIN parents pa ON pa.id = s.parent_id
            WHERE p.status = 'paid' ORDER BY p.paid_at DESC, p.id DESC LIMIT 8"""
     ).fetchall()
+    notes = db.execute(
+        """SELECT n.*, COALESCE(NULLIF(u.full_name, ''), u.username, '?') author FROM notes n
+           LEFT JOIN users u ON u.id = n.user_id WHERE n.done = 0
+           ORDER BY n.pinned DESC, n.created_at DESC LIMIT 4"""
+    ).fetchall()
     counts = db.execute(
         "SELECT (SELECT COUNT(*) FROM parents WHERE active = 1) parents, "
         "(SELECT COUNT(*) FROM students WHERE active = 1) students"
     ).fetchone()
     return render_template(
-        "dashboard.html", pending=pending, overdue=overdue, collected=collected,
-        month_commission=month_commission, balance=balance, upcoming=upcoming,
-        recent=recent, counts=counts, today=today,
+        "dashboard.html", stats=stats, notes=notes, upcoming=upcoming, recent=recent, counts=counts, today=today,
     )
 
 

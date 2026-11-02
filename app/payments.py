@@ -6,8 +6,9 @@ from flask import (Blueprint, abort, current_app, flash, redirect, render_templa
                    request, send_from_directory, url_for)
 
 from .db import get_db, get_settings
-from .utils import (commission_label, compute_commission, money, fmt_date,
-                    normalize_phone, parse_int, parse_money, today_iso)
+from .main import summary_stats
+from .utils import (commission_label, compute_commission, money, money_text, fmt_date, normalize_phone,
+                    num, parse_hours, parse_int, parse_money, qty, today_iso)
 
 bp = Blueprint("payments", __name__)
 
@@ -43,7 +44,7 @@ def _active_students():
 @bp.route("/odemeler")
 def index():
     db = get_db()
-    status = request.args.get("durum", "pending")
+    status = request.args.get("durum", "all")
     q = request.args.get("q", "").strip()
     sql = """SELECT p.*, s.name student_name, s.color, pa.name parent_name, pa.id parent_id
              FROM payments p JOIN students s ON s.id = p.student_id JOIN parents pa ON pa.id = s.parent_id
@@ -60,23 +61,29 @@ def index():
         args += [f"%{q}%"] * 3
     if status == "paid":
         sql += " ORDER BY p.paid_at DESC, p.id DESC"
+    elif status == "all":
+        sql += (" ORDER BY CASE p.status WHEN 'pending' THEN 0 WHEN 'paid' THEN 1 ELSE 2 END,"
+                " CASE WHEN p.status = 'pending' THEN p.due_date END,"
+                " COALESCE(p.paid_at, p.due_date, p.created_at) DESC, p.id DESC")
     else:
         sql += " ORDER BY p.due_date IS NULL, p.due_date, p.id DESC"
     rows = db.execute(sql + " LIMIT 500", args).fetchall()
     total = sum((r["paid_amount"] if r["status"] == "paid" else r["amount"]) or 0 for r in rows)
-    return render_template("payments.html", payments=rows, status=status, q=q, total=total, today=today_iso())
+    return render_template("payments.html", payments=rows, status=status, q=q, total=total,
+                           today=today_iso(), stats=summary_stats(db))
 
 
-def _payment_form(student):
+def _payment_form(units):
+    """units: (online saat ücreti, yüz yüze saat ücreti)"""
     f = request.form
-    online = max(0, parse_int(f.get("online_count"), 0))
-    inperson = max(0, parse_int(f.get("inperson_count"), 0))
-    auto = online * student["online_price"] + inperson * student["inperson_price"]
+    online = parse_hours(f.get("online_count"))
+    inperson = parse_hours(f.get("inperson_count"))
+    auto = online * units[0] + inperson * units[1]
     amount = parse_money(f.get("amount"), None)
     if amount is None:
         amount = auto
     if amount <= 0:
-        flash("Tutar 0'dan büyük olmalı (ders sayısı girin ya da tutarı elle yazın).", "error")
+        flash("Tutar 0'dan büyük olmalı (ders saati girin ya da tutarı elle yazın).", "error")
         return None
     due = f.get("due_date") or None
     if due:
@@ -85,7 +92,8 @@ def _payment_form(student):
         except ValueError:
             due = None
     return dict(
-        online_count=online, inperson_count=inperson, amount=round(amount, 2), due_date=due,
+        online_count=online, inperson_count=inperson, online_unit=units[0], inperson_unit=units[1],
+        amount=round(amount, 2), due_date=due,
         description=f.get("description", "").strip(), notes=f.get("notes", "").strip(),
     )
 
@@ -100,11 +108,13 @@ def new():
         if student is None:
             flash("Öğrenci seçin.", "error")
         else:
-            data = _payment_form(student)
+            data = _payment_form((student["online_price"], student["inperson_price"]))
             if data:
                 cur = db.execute(
-                    """INSERT INTO payments(student_id, description, online_count, inperson_count, amount, due_date, notes)
-                       VALUES (:student_id, :description, :online_count, :inperson_count, :amount, :due_date, :notes)""",
+                    """INSERT INTO payments(student_id, description, online_count, inperson_count,
+                       online_unit, inperson_unit, amount, due_date, notes)
+                       VALUES (:student_id, :description, :online_count, :inperson_count,
+                       :online_unit, :inperson_unit, :amount, :due_date, :notes)""",
                     dict(data, student_id=sid),
                 )
                 db.commit()
@@ -137,18 +147,29 @@ def detail(pay_id):
     )
 
 
+def payment_units(p):
+    """Ödemedeki saat ücretleri; eski kayıtlarda yoksa öğrencinin güncel tarifesi."""
+    on = p["online_unit"] or p["online_price"] or 0
+    inp = p["inperson_unit"] or p["inperson_price"] or 0
+    return on, inp
+
+
 def render_message(body, p):
-    parts = []
+    on_unit, in_unit = payment_units(p)
+    parts, lines = [], []
     if p["online_count"]:
-        parts.append(f"{p['online_count']} online")
+        parts.append(f"{qty(p['online_count'])} saat online")
+        lines.append(f"{qty(p['online_count'])} saat online({qty(p['online_count'])}x{num(on_unit)})")
     if p["inperson_count"]:
-        parts.append(f"{p['inperson_count']} yüz yüze")
+        parts.append(f"{qty(p['inperson_count'])} saat yüz yüze")
+        lines.append(f"{qty(p['inperson_count'])} saat yüz yüze({qty(p['inperson_count'])}x{num(in_unit)})")
     total = p["online_count"] + p["inperson_count"]
     values = {
         "veli": p["parent_name"],
         "ogrenci": p["student_name"],
-        "tutar": money(p["amount"]),
-        "ders_sayisi": str(total) if total else "",
+        "tutar": money_text(p["amount"]),
+        "ders_listesi": "\n".join(lines),
+        "ders_sayisi": qty(total) if total else "",
         "ders_detay": " + ".join(parts),
         "son_odeme": fmt_date(p["due_date"]) if p["due_date"] else "-",
         "aciklama": p["description"],
@@ -164,12 +185,12 @@ def edit(pay_id):
     db = get_db()
     payment = _get_payment(pay_id)
     if request.method == "POST":
-        student = db.execute("SELECT * FROM students WHERE id = ?", (payment["student_id"],)).fetchone()
-        data = _payment_form(student)
+        data = _payment_form(payment_units(payment))
         if data:
             db.execute(
                 """UPDATE payments SET description = :description, online_count = :online_count,
-                   inperson_count = :inperson_count, amount = :amount, due_date = :due_date, notes = :notes
+                   inperson_count = :inperson_count, online_unit = :online_unit, inperson_unit = :inperson_unit,
+                   amount = :amount, due_date = :due_date, notes = :notes
                    WHERE id = :id""",
                 dict(data, id=pay_id),
             )

@@ -13,28 +13,7 @@
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat">
-    <div class="label">Bekleyen ödemeler</div>
-    <div class="value">{{ pending.s | money }}</div>
-    <div class="sub">{{ pending.c }} kayıt</div>
-  </div>
-  <div class="stat">
-    <div class="label">Geciken</div>
-    <div class="value" style="color:var(--danger)">{{ overdue.s | money }}</div>
-    <div class="sub">{{ overdue.c }} kayıt, son ödeme tarihi geçti</div>
-  </div>
-  <div class="stat">
-    <div class="label">Bu ay tahsil edilen</div>
-    <div class="value" style="color:var(--success)">{{ collected | money }}</div>
-    <div class="sub">Bu ayki komisyonum: {{ month_commission | money }}</div>
-  </div>
-  <a class="stat accent" href="{{ url_for('commission.index') }}" style="text-decoration:none">
-    <div class="label">Komisyon bakiyem</div>
-    <div class="value">{{ balance | money }}</div>
-    <div class="sub">Henüz bana ödenmemiş tutar →</div>
-  </a>
-</div>
+{% include "_stats.html" %}
 
 <div class="grid grid-2">
   <div class="card">
@@ -88,4 +67,16 @@
     </div>
   </div>
 </div>
+
+{% if notes %}
+<div class="card">
+  <div class="card-head"><h2>{{ icon('note') }} Notlar</h2><a class="small" href="{{ url_for('notes.index') }}">Tümü →</a></div>
+  {% for n in notes %}
+    <div class="note-mini {{ 'pinned' if n.pinned }}">
+      <div class="note-body">{{ n.body | truncate(240) }}</div>
+      <div class="small muted">{{ n.author }} · {{ n.created_at | tarihsaat }}</div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
 {% endblock %}
