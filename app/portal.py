@@ -5,14 +5,12 @@ Veli: kendi çocuklarının programı, ders kayıtları/dosyaları, ödemeleri v
 Öğrenci: sadece kendi programı ve ders kayıtları/dosyaları (ödeme bilgisi yok).
 Komisyon, iç notlar ve "sadece bize not" hiçbir zaman gösterilmez.
 """
-import time
 from datetime import date, timedelta
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from .audit import log
-from .auth import _client_ip, _failures, _is_locked
 from .db import get_db
 from .holidays import days_info
 from .lessons import files_by_lesson, lesson_label, send_lesson_file
@@ -55,7 +53,7 @@ def load_portal_user():
             g.portal = dict(row)
             g.portal["display_name"] = row["parent_name"] if row["role"] == "parent" else row["student_name"]
     if g.portal is None and request.endpoint not in OPEN_ENDPOINTS:
-        return redirect(url_for("portal.login"))
+        return redirect(url_for("auth.login", next=request.path if request.method == "GET" and request.path != "/portal/" else None))
 
 
 def _students():
@@ -124,45 +122,16 @@ def portal_hhmm(m):
 
 # ---------------------------------------------------------------- giriş / çıkış
 
-@bp.route("/giris", methods=["GET", "POST"])
+@bp.route("/giris")
 def login():
-    if g.portal:
-        return redirect(url_for("portal.home"))
-    if request.method == "POST":
-        ip = _client_ip()
-        if _is_locked(ip):
-            flash("Çok fazla hatalı deneme. Lütfen 15 dakika sonra tekrar deneyin.", "error")
-            return render_template("portal/login.html"), 429
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        db = get_db()
-        user = db.execute("SELECT * FROM portal_users WHERE username = ?", (username,)).fetchone()
-        if user and user["active"] and check_password_hash(user["password_hash"], password):
-            _failures.pop(ip, None)
-            csrf = session.get("_csrf")
-            session.clear()
-            if csrf:
-                session["_csrf"] = csrf
-            session["portal_uid"] = user["id"]
-            session.permanent = bool(request.form.get("remember"))
-            db.execute("UPDATE portal_users SET last_login = datetime('now', 'localtime') WHERE id = ?", (user["id"],))
-            log("Portala giriş yapıldı", f"{username} ({'veli' if user['role'] == 'parent' else 'öğrenci'})",
-                "portal", user["id"], user={"id": None, "username": username, "full_name": f"Portal: {username}"})
-            db.commit()
-            return redirect(url_for("portal.home"))
-        _failures[ip].append(time.time())
-        log("Portal: hatalı giriş denemesi", f"kullanıcı adı: {username[:40]}", "portal",
-            user={"id": None, "username": "", "full_name": ""})
-        db.commit()
-        time.sleep(0.5)
-        flash("Kullanıcı adı veya şifre hatalı.", "error")
-    return render_template("portal/login.html")
+    """Eski adres: giriş artık tek sayfada (/giris)."""
+    return redirect(url_for("auth.login"))
 
 
 @bp.route("/cikis", methods=["POST"])
 def logout():
     session.pop("portal_uid", None)
-    return redirect(url_for("portal.login"))
+    return redirect(url_for("auth.login"))
 
 
 @bp.route("/sifre", methods=["GET", "POST"])

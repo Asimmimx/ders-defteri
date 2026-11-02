@@ -6,6 +6,7 @@ from flask import Blueprint, abort, flash, redirect, request, session, url_for
 from werkzeug.security import generate_password_hash
 
 from .audit import log
+from .auth import username_taken
 from .db import PORTAL_TEMPLATE, get_db, get_settings
 
 bp = Blueprint("access", __name__)
@@ -22,7 +23,7 @@ def new_password():
 def suggest_username(db, name):
     base = re.sub(r"[^a-z0-9]+", ".", name.translate(_TR).lower()).strip(".")[:24] or "kullanici"
     candidate, n = base, 2
-    while db.execute("SELECT 1 FROM portal_users WHERE username = ?", (candidate,)).fetchone():
+    while username_taken(db, candidate):
         candidate, n = f"{base}{n}", n + 1
     return candidate
 
@@ -89,7 +90,7 @@ def create(pid):
         if not re.fullmatch(r"[a-z0-9_.\-]{3,32}", username):
             flash("Kullanıcı adı 3-32 karakter olmalı (küçük harf, rakam, . _ -).", "error")
             return redirect(url_for("main.parent_detail", pid=pid) + "#portal")
-        if db.execute("SELECT 1 FROM portal_users WHERE username = ?", (username,)).fetchone():
+        if username_taken(db, username):
             flash("Bu kullanıcı adı alınmış.", "error")
             return redirect(url_for("main.parent_detail", pid=pid) + "#portal")
     else:

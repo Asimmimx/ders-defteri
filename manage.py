@@ -61,6 +61,8 @@ def main():
     if args.cmd == "create-user":
         if conn.execute("SELECT 1 FROM users WHERE username = ?", (args.username,)).fetchone():
             sys.exit("Bu kullanıcı zaten var. Şifre değiştirmek için: set-password")
+        if conn.execute("SELECT 1 FROM portal_users WHERE username = ?", (args.username,)).fetchone():
+            sys.exit("Bu kullanıcı adı bir veli/öğrenci portal hesabında kullanılıyor; başka bir ad seçin.")
         pw = _ask_password()
         conn.execute("INSERT INTO users(username, full_name, password_hash) VALUES (?, ?, ?)",
                      (args.username, args.name, generate_password_hash(pw)))

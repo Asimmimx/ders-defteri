@@ -3,7 +3,7 @@ import secrets
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, abort, g, redirect, request, session, url_for
+from flask import Flask, abort, g, request, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import db, utils
@@ -36,7 +36,6 @@ def create_app():
         UPLOAD_DIR=str(data_dir / "uploads"),
         BACKUP_DIR=str(data_dir / "backups"),
         MAX_CONTENT_LENGTH=25 * 1024 * 1024,
-        PORTAL_HOST=os.environ.get("PORTAL_HOST", "").strip().lower(),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "0") == "1",
@@ -65,21 +64,6 @@ def create_app():
             token = request.form.get("_csrf") or request.headers.get("X-CSRF-Token")
             if not token or token != session.get("_csrf"):
                 abort(400, "Güvenlik doğrulaması başarısız. Sayfayı yenileyip tekrar deneyin.")
-
-    # Portal alan adında (portal.eneskayar.com) sadece portal sayfaları açılır
-    portal_open = {"static", "public.robots"}
-
-    @app.before_request
-    def portal_host_guard():
-        host = app.config["PORTAL_HOST"]
-        if not host or (request.host or "").split(":")[0].lower() != host:
-            return None
-        ep = request.endpoint or ""
-        if ep.startswith("portal.") or ep in portal_open:
-            return None
-        if request.path in ("/", "/giris"):
-            return redirect(url_for("portal.home"))
-        abort(404)
 
     @app.after_request
     def security_headers(resp):

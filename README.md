@@ -45,8 +45,8 @@ Veliyi ve çocuğunu ekleyin, verilen ders saatlerini girin, tek tıkla hazır �
 | 📅 **Haftalık program** | Tarihli, hafta hafta gezilebilen program; her haftanın programı ayrıdır, "Geçen haftayı kopyala" ile tek tıkla doldurulur. Öğrenciyi sürükleyip saate bırakın; yüz yüze / online seçimi, günlük doluluk oranı, müsait günler. **PNG olarak indir.** |
 | 🎉 **Resmi tatiller ve özel günler** | Ulusal ve dini bayramlar (arifeler yarım gün) programda kırmızı görünür; yarıyıl tatili, sınav haftası gibi günleri tarih aralığıyla kendiniz ekleyin. |
 | 📚 **Ders kayıtları** | Programdaki derse tıklayıp “derste işlenen konu” yazın; ödev, PDF ve görsel ekleyin. Programda olmayan dersler elle girilir. “Sadece bize not” veli/öğrenciye görünmez. |
-| 👪 **Veli ve öğrenci portalı** | Ayrı alan adında (ör. `portal.ornek.com`) veli: çocuklarının programı, işlenen konular, PDF'ler, ödemeler ve bakiye; öğrenci: sadece programı ve işlenen konular. Hesaplar veli sayfasından tek tıkla, hazır giriş mesajıyla. |
-| 🔄 **Google Takvim (taslak)** | Dersler Google Takvime yazılır, Google'daki etkinlikler programda “Dolu” görünür. Google Cloud kimlik bilgileri girilene kadar kapalıdır. |
+| 👪 **Veli ve öğrenci portalı** | Tek giriş sayfası: hoca/asistan yönetim paneline, veli ve öğrenci kendi portalına gider. Veli: çocuklarının programı, işlenen konular, PDF'ler, ödemeler ve bakiye; öğrenci: sadece programı ve işlenen konular. Hesaplar veli sayfasından tek tıkla, hazır giriş mesajıyla. |
+| 🔄 **Google Takvim (taslak, ertelendi)** | Dersler Google Takvime yazılır, Google'daki etkinlikler programda “Dolu” görünür. Kod hazır; Google Cloud kimlik bilgileri girilene kadar kapalıdır. |
 | ⛔ **Dolu saatler** | Ders dışında meşgul olduğunuz saatleri (okul, iş…) açıklamayla işaretleyin; dolu saate ders eklenemez. |
 | 🖱️ **Hızlı düzenleme** | Programda sağ tıkla (telefonda uzun basarak) sil, 5 saniye içinde "Geri al". |
 | 📝 **Ortak notlar** | Kullanıcılar arasında not paylaşımı; sabitleme ve tamamlandı işareti. |
@@ -89,6 +89,43 @@ Tamamlanan her ödemede asistan payı eklenir; asistana yapılan ödemeler bakiy
 Çocuklar, tarifeleri, öğrenciye özel komisyon ve tüm ödeme geçmişi.
 
 ![Veli detayı](docs/screenshots/veli-detay.jpg)
+
+### Derste işlenen konu
+Programda derse tıklayınca konu yazılır; konusu ve dosyası olan dersler programda 📄 işaretiyle görünür.
+
+![Programda ders penceresi](docs/screenshots/program-konu.jpg)
+
+Ders kaydı: konu, ödev, PDF/görsel dosyalar ve sadece hoca/asistanın gördüğü not.
+
+![Ders kaydı](docs/screenshots/ders-kaydi.jpg)
+
+### Portal erişimi
+Veli sayfasından veli ve öğrenci hesabı açılır; şifre bir kez, gönderilmeye hazır mesajla gösterilir.
+
+![Portal erişimi](docs/screenshots/portal-erisimi.jpg)
+
+### Tek giriş sayfası
+Hoca ve asistan da veliler ve öğrenciler de buradan girer; herkes kendi ekranına yönlenir.
+
+![Giriş](docs/screenshots/giris.jpg)
+
+### Veli portalı
+Bu haftanın ve gelecek haftanın dersleri, son işlenen konular, ödevler ve indirilebilir dosyalar, bekleyen ödeme.
+
+![Veli portalı](docs/screenshots/portal-veli.jpg)
+
+İşlenen konular (çocuğa göre filtrelenebilir):
+
+![İşlenen konular](docs/screenshots/portal-konular.jpg)
+
+Ödemeler ve bakiye (komisyon ve iç notlar görünmez):
+
+![Portal ödemeler](docs/screenshots/portal-odemeler.jpg)
+
+### Öğrenci portalı
+Öğrenci yalnızca kendi programını ve işlenen konuları görür; ödeme menüsü yoktur.
+
+![Öğrenci portalı](docs/screenshots/portal-ogrenci.jpg)
 
 ---
 
@@ -184,7 +221,6 @@ server {
 | `SECRET_KEY` | Oturum imzalama anahtarı (uzun ve rastgele olmalı) |
 | `COOKIE_SECURE` | HTTPS arkasında `1` |
 | `DATA_DIR` | Veritabanı, dekont ve yedek klasörü |
-| `PORTAL_HOST` | Portal alan adı (ör. `portal.ornek.com`). Bu alan adında sadece portal sayfaları açılır. |
 
 ---
 
@@ -263,15 +299,23 @@ Teşekkür ederim🙏
 
 ## Veli / öğrenci portalı
 
-- Portal `/portal/` altındadır. `.env` içinde `PORTAL_HOST` verilirse o alan adında **yalnızca** portal açılır (yönetim sayfaları 404), kök adres portala yönlenir.
-- Hesaplar: Veliler → veli → **Portal erişimi** → “Veli hesabı oluştur” / “Öğrenci hesabı oluştur”. Kullanıcı adı addan üretilir, şifre rastgeledir ve **sadece bir kez** hazır mesajla gösterilir (kopyala / WhatsApp). Şifre sıfırlama, kapatma ve silme aynı yerden.
-- Portal hesapları personel hesaplarından ayrı tablodadır (`portal_users`) ve ayrı oturum anahtarı kullanır; portal oturumu yönetim sayfalarını açamaz.
-- Veli: çocuklarının programı, işlenen konular/ödevler, dosyalar, ödemeler ve bakiye. Öğrenci: sadece kendi programı ve işlenen konular. Komisyon, iç notlar ve “sadece bize not” hiçbir yerde gösterilmez.
-- Ayarlar → Veli / öğrenci portalı: giriş mesajında yazan adres.
+Hoca, asistan, veliler ve öğrenciler **aynı adresten ve aynı giriş sayfasından** girer. Kullanıcı adı önce yönetici hesaplarında, sonra veli/öğrenci hesaplarında aranır:
+
+| Kim giriyor | Nereye gider | Ne görür |
+|---|---|---|
+| Hoca / asistan | Yönetim paneli (`/`) | Her şey |
+| Veli | Portal (`/portal/`) | Çocuklarının programı, işlenen konular, ödevler, PDF'ler, ödemeler ve bakiye |
+| Öğrenci | Portal (`/portal/`) | Sadece kendi programı, işlenen konular, ödevler ve PDF'ler (ödeme yok) |
+
+- **Hesap açma:** Veliler → veli → **Portal erişimi** → “Veli hesabı oluştur” / “Öğrenci hesabı oluştur”. Kullanıcı adı addan üretilir (ör. `nurgul.yilmaz`), şifre rastgeledir ve **sadece bir kez** hazır mesajla gösterilir (kopyala / WhatsApp). Şifre sıfırlama, erişimi kapatma ve silme aynı yerden.
+- **Ayrı hesap tablosu:** Veli/öğrenci hesapları yönetici hesaplarından ayrı tutulur (`portal_users`) ve ayrı oturum kullanır; portal oturumu yönetim sayfalarını ve API'yi açamaz. Kullanıcı adları iki hesap türünde de benzersizdir.
+- **Gizli kalanlar:** Komisyon, ödeme notları ve ders kaydındaki “Sadece bize not” portalda hiçbir zaman gösterilmez. Her sorgu giriş yapan kişinin kendi çocuklarıyla sınırlıdır; başka ailenin dosyası açılmaz.
+- **Ders kaydı girme:** Programda derse tıklayıp “Derste işlenen konu” yazın; ödev ve PDF/görsel için “PDF ekle / ödev yaz →”. Programda olmayan dersler **Dersler** sayfasından elle eklenir; bu sayfa son 3 haftada konusu girilmemiş dersleri de listeler.
+- Giriş mesajında yazan adres: Ayarlar → Veli / öğrenci portalı.
 
 ## Google Takvim (taslak)
 
-Kod hazırdır ama Google Cloud'da OAuth istemcisi oluşturulup **Ayarlar → Google Takvim**'e girilene ve “Google ile bağlan” yapılana kadar hiçbir şey göndermez.
+Bu özellik **ertelendi**. Kod hazırdır ama Google Cloud'da OAuth istemcisi oluşturulup **Ayarlar → Google Takvim**'e girilene ve “Google ile bağlan” yapılana kadar hiçbir şey göndermez.
 
 - Buradan Google'a: eklenen / taşınan / silinen dersler Google Takvim etkinliği olarak yazılır, güncellenir, silinir.
 - Google'dan buraya: Google Takvimdeki (bizim yazmadığımız, tüm gün olmayan) etkinlikler programda “Dolu · Google: …” olarak görünür.

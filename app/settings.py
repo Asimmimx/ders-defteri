@@ -133,8 +133,9 @@ def add_user():
         flash("Şifre en az 8 karakter olmalı.", "error")
     else:
         db = get_db()
-        if db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
-            flash("Bu kullanıcı adı zaten var.", "error")
+        from .auth import username_taken
+        if username_taken(db, username):
+            flash("Bu kullanıcı adı zaten var (yönetici veya veli/öğrenci hesabı).", "error")
         else:
             db.execute("INSERT INTO users(username, full_name, password_hash) VALUES (?, ?, ?)",
                        (username, request.form.get("full_name", "").strip(), generate_password_hash(password)))

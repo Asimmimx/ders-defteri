@@ -1,24 +1,15 @@
-<!doctype html>
-<html lang="tr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Giriş · Ödeme Takip</title>
-{% include "_head.html" %}
-</head>
-<body>
-<div class="login-wrap">
+{% extends "portal/base.html" %}
+{% block title %}Giriş{% endblock %}
+{% block content %}
+<div class="login-wrap" style="min-height:80vh">
   <div class="card login-card">
-    <div class="brand"><span class="logo">₺</span> Ödeme Takip</div>
-    <p class="muted" style="text-align:center;margin-top:0">Devam etmek için giriş yapın</p>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for cat, msg in messages %}<div class="flash {{ cat }}">{{ msg }}</div>{% endfor %}
-    {% endwith %}
+    <div class="brand"><span class="logo">EK</span> Ders Portalı</div>
+    <p class="muted" style="text-align:center;margin-top:0">Veli ve öğrenci girişi</p>
     <form method="post">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <div class="field">
         <label for="username">Kullanıcı adı</label>
-        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="none" required autofocus>
       </div>
       <div class="field">
         <label for="password">Şifre</label>
@@ -27,7 +18,7 @@
       <div class="field"><label class="check"><input type="checkbox" name="remember" value="1" checked> Beni hatırla (30 gün)</label></div>
       <button class="btn primary block">Giriş yap</button>
     </form>
+    <p class="small muted" style="text-align:center;margin-bottom:0">Giriş bilgilerinizi bilmiyorsanız Enes Hoca ile iletişime geçin.</p>
   </div>
 </div>
-</body>
-</html>
+{% endblock %}

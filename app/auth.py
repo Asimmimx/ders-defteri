@@ -46,10 +46,27 @@ def load_user():
         return redirect(url_for("auth.login", next=(request.full_path.rstrip("?") if request.method == "GET" and request.path != "/" else None)))
 
 
+def _start_session(key, uid, remember):
+    csrf = session.get("_csrf")
+    session.clear()
+    if csrf:
+        session["_csrf"] = csrf
+    session[key] = uid
+    session.permanent = remember
+
+
+def _safe_next(default):
+    nxt = request.args.get("next") or ""
+    return nxt if nxt.startswith("/") and not nxt.startswith("//") else default
+
+
 @bp.route("/giris", methods=["GET", "POST"])
 def login():
+    """Tek giriş sayfası: personel (users) yönetim paneline, veli/öğrenci (portal_users) portala gider."""
     if g.user:
         return redirect(url_for("main.dashboard"))
+    if session.get("portal_uid"):
+        return redirect(url_for("portal.home"))
     if request.method == "POST":
         ip = _client_ip()
         if _is_locked(ip):
@@ -57,27 +74,39 @@ def login():
             return render_template("login.html"), 429
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        user = get_db().execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        remember = bool(request.form.get("remember"))
+        db = get_db()
+        user = db.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         if user and check_password_hash(user["password_hash"], password):
             _failures.pop(ip, None)
-            csrf = session.get("_csrf")
-            session.clear()
-            if csrf:
-                session["_csrf"] = csrf
-            session["user_id"] = user["id"]
-            session.permanent = bool(request.form.get("remember"))
+            _start_session("user_id", user["id"], remember)
             log("Giriş yapıldı", "", "auth", user=user)
-            get_db().commit()
-            nxt = request.args.get("next") or ""
-            if not nxt.startswith("/") or nxt.startswith("//"):
-                nxt = url_for("main.dashboard")
-            return redirect(nxt)
+            db.commit()
+            nxt = _safe_next(url_for("main.dashboard"))
+            return redirect(url_for("main.dashboard") if nxt.startswith("/portal") else nxt)
+        puser = db.execute("SELECT * FROM portal_users WHERE username = ?", (username,)).fetchone()
+        if puser and puser["active"] and check_password_hash(puser["password_hash"], password):
+            _failures.pop(ip, None)
+            _start_session("portal_uid", puser["id"], remember)
+            db.execute("UPDATE portal_users SET last_login = datetime('now', 'localtime') WHERE id = ?", (puser["id"],))
+            log("Portala giriş yapıldı", f"{username} ({'veli' if puser['role'] == 'parent' else 'öğrenci'})",
+                "portal", puser["id"], user={"id": None, "username": username, "full_name": f"Portal: {username}"})
+            db.commit()
+            nxt = _safe_next(url_for("portal.home"))
+            return redirect(nxt if nxt.startswith("/portal/") else url_for("portal.home"))
         _failures[ip].append(time.time())
         log("Hatalı giriş denemesi", f"kullanıcı adı: {username[:40]}", "auth", user=None)
-        get_db().commit()
+        db.commit()
         time.sleep(0.5)
         flash("Kullanıcı adı veya şifre hatalı.", "error")
     return render_template("login.html")
+
+
+def username_taken(db, username):
+    """Personel ve portal hesapları aynı giriş sayfasını kullanır; kullanıcı adı iki tabloda da benzersiz olmalı."""
+    return bool(db.execute(
+        "SELECT 1 FROM users WHERE username = ? UNION ALL SELECT 1 FROM portal_users WHERE username = ?",
+        (username, username)).fetchone())
 
 
 @bp.route("/cikis", methods=["POST"])

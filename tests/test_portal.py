@@ -57,9 +57,9 @@ class PortalTest(unittest.TestCase):
 
     def portal_login(self, username, password, client=None, base=""):
         c = client or self.app.test_client()
-        html = c.get(f"{base}/portal/giris").get_data(as_text=True)
+        html = c.get(f"{base}/giris").get_data(as_text=True)
         t = re.search(r'name="_csrf" value="([^"]+)"', html).group(1)
-        r = c.post(f"{base}/portal/giris", data={"_csrf": t, "username": username, "password": password})
+        r = c.post(f"{base}/giris", data={"_csrf": t, "username": username, "password": password})
         return c, r
 
     def db(self):
@@ -211,7 +211,7 @@ class PortalTest(unittest.TestCase):
         with self.db() as conn:
             uid = conn.execute("SELECT id FROM portal_users WHERE username = ?", (suser,)).fetchone()[0]
         c.post(f"/portal-hesap/{uid}/durum", data={"_csrf": t})
-        self.assertIn("/portal/giris", sc.get("/portal/").headers["Location"])
+        self.assertIn("/giris", sc.get("/portal/").headers["Location"])
         # Şifre sıfırlama yeni şifre üretir
         c.post(f"/portal-hesap/{uid}/durum", data={"_csrf": t})
         c.post(f"/portal-hesap/{uid}/sifirla", data={"_csrf": t})
@@ -226,25 +226,35 @@ class PortalTest(unittest.TestCase):
                   "Ders kaydı güncellendi", "Ders kaydı eklendi", "Portal hesabı kapatıldı"):
             self.assertIn(a, actions)
 
-    def test_portal_host_only_serves_portal(self):
-        self.app.config["PORTAL_HOST"] = "portal.example.test"
-        try:
-            c = self.app.test_client()
-            base = "http://portal.example.test"
-            r = c.get(f"{base}/")
-            self.assertEqual(r.status_code, 302)
-            self.assertIn("/portal/", r.headers["Location"])
-            self.assertEqual(c.get(f"{base}/veliler").status_code, 404)
-            self.assertEqual(c.get(f"{base}/api/program").status_code, 404)
-            self.assertEqual(c.get(f"{base}/portal/giris").status_code, 200)
-            self.assertEqual(c.get(f"{base}/robots.txt").status_code, 200)
-            self.assertIn("noindex", c.get(f"{base}/portal/giris").headers["X-Robots-Tag"])
-            # Personel girişi portal alan adında açılmaz
-            self.assertIn("/portal/", c.get(f"{base}/giris").headers["Location"])
-            # Personel alan adı etkilenmez
-            self.assertIn("/giris", self.app.test_client().get("http://odeme.example.test/").headers["Location"])
-        finally:
-            self.app.config["PORTAL_HOST"] = ""
+    def test_single_login_page(self):
+        c, t = self.staff()
+        # Giriş sayfası veli ve öğrenci girişi yazar; personel girince yönetim paneline gider
+        anon = self.app.test_client()
+        self.assertIn("Veli ve öğrenci girişi", anon.get("/giris").get_data(as_text=True))
+        self.assertIn("/giris", anon.get("/portal/").headers["Location"])
+        self.assertIn("/giris", anon.get("/portal/giris").headers["Location"])
+        _, r = self.portal_login("asim", "sifre1234")
+        self.assertEqual(r.headers["Location"], "/")
+        # Veli girince portala gider; yönetim adresleri onu portala geri yollar
+        with self.db() as conn:
+            from werkzeug.security import generate_password_hash
+            conn.execute("INSERT INTO portal_users(username, password_hash, role, parent_id) VALUES ('veli.test', ?, 'parent', 2)",
+                         (generate_password_hash("velisifre1"),))
+        pc, r = self.portal_login("veli.test", "velisifre1")
+        self.assertEqual(r.headers["Location"], "/portal/")
+        self.assertIn("/giris", pc.get("/").headers["Location"])
+        self.assertIn("/portal/", pc.get("/giris").headers["Location"])
+        self.assertEqual(pc.get("/api/program").status_code, 401)
+        # Kullanıcı adı iki hesap türünde de benzersiz
+        r = c.post("/ayarlar/kullanici", data={"_csrf": t, "username": "veli.test", "password": "uzunsifre1"},
+                   follow_redirects=True)
+        self.assertIn("zaten var", r.get_data(as_text=True))
+        r = c.post("/veliler/1/portal", data={"_csrf": t, "student_id": 2, "username": "asim"}, follow_redirects=True)
+        self.assertIn("alınmış", r.get_data(as_text=True))
+        from app.access import suggest_username
+        with self.app.app_context():
+            from app.db import get_db
+            self.assertEqual(suggest_username(get_db(), "Asim"), "asim2")
 
     def test_gcal_sync_with_fake_google(self):
         from app import gcal
