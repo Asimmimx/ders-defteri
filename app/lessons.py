@@ -229,8 +229,18 @@ def index():
                            missing=missing[:30], label=lesson_label)
 
 
-def _form_values():
+def _form_values(linked=None):
+    """Formdaki değerler. linked: programa bağlı ders kaydı; onun tarih/saat/tür alanları
+    formda kapalıdır (disabled, tarayıcı göndermez), değerler kayıttan alınır."""
     f = request.form
+    texts = dict(
+        topic=f.get("topic", "").strip()[:2000],
+        homework=f.get("homework", "").strip()[:2000],
+        private_note=f.get("private_note", "").strip()[:2000],
+    )
+    if linked is not None:
+        return dict(texts, lesson_date=linked["lesson_date"], start_min=linked["start_min"],
+                    lesson_type=linked["lesson_type"]), None
     try:
         d = date.fromisoformat(f.get("lesson_date", ""))
     except ValueError:
@@ -246,11 +256,8 @@ def _form_values():
         if not 0 <= start_min < 24 * 60:
             return None, "Saat geçersiz."
     return dict(
-        lesson_date=d.isoformat(), start_min=start_min,
+        texts, lesson_date=d.isoformat(), start_min=start_min,
         lesson_type="online" if f.get("lesson_type") == "online" else "inperson",
-        topic=f.get("topic", "").strip()[:2000],
-        homework=f.get("homework", "").strip()[:2000],
-        private_note=f.get("private_note", "").strip()[:2000],
     ), None
 
 
@@ -264,7 +271,8 @@ def new():
         if student is None:
             err = "Öğrenci seçin."
         if err:
-            flash(err, "error")
+            flash(err + (" Seçtiğiniz dosyalar yüklenmedi, yeniden seçin."
+                         if any(x.filename for x in request.files.getlist("files")) else ""), "error")
         else:
             cur = db.execute(
                 """INSERT INTO lessons(student_id, lesson_date, start_min, lesson_type, topic, homework, private_note)
@@ -301,13 +309,11 @@ def edit(lid):
     db = get_db()
     lesson = _get(lid)
     if request.method == "POST":
-        vals, err = _form_values()
+        # programa bağlı derste tarih/saat/tür programdan gelir
+        vals, err = _form_values(lesson if lesson["slot_id"] else None)
         if err:
-            flash(err, "error")
+            flash(err + " Seçtiğiniz dosyalar yüklenmedi, yeniden seçin.", "error")
         else:
-            if lesson["slot_id"]:  # programa bağlı derste tarih/saat programdan gelir
-                vals.update(lesson_date=lesson["lesson_date"], start_min=lesson["start_min"],
-                            lesson_type=lesson["lesson_type"])
             db.execute(
                 """UPDATE lessons SET lesson_date = :lesson_date, start_min = :start_min, lesson_type = :lesson_type,
                    topic = :topic, homework = :homework, private_note = :private_note,

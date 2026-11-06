@@ -205,6 +205,10 @@ def parent_delete(pid):
     if has_payments:
         flash("Bu velinin ödeme kayıtları var; silmek yerine 'Pasif' yapın (kayıtlar ve komisyon geçmişi korunur).", "error")
         return redirect(url_for("main.parent_detail", pid=pid))
+    # Ders kayıtları CASCADE ile silinir; dosyalarını diskten biz silmeliyiz
+    from .lessons import delete_lesson_files
+    delete_lesson_files(db, [r[0] for r in db.execute(
+        "SELECT l.id FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.parent_id = ?", (pid,))])
     db.execute("DELETE FROM parents WHERE id = ?", (pid,))
     log("Veli silindi", parent["name"], "parent", pid)
     db.commit()

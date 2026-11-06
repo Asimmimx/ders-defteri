@@ -46,6 +46,26 @@ class PortalTest(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
+    def test_parent_delete_removes_lesson_files(self):
+        c, t = self.staff()
+        with self.db() as conn:
+            conn.execute("INSERT INTO parents(id, name) VALUES (50, 'Silinecek Veli')")
+            conn.execute("INSERT INTO students(id, parent_id, name) VALUES (50, 50, 'Deneme')")
+            conn.commit()
+        r = c.post("/dersler/yeni", data={"_csrf": t, "student_id": 50, "lesson_date": "2026-11-02",
+                                          "topic": "Deneme", "files": [(io.BytesIO(PDF), "deneme.pdf")]},
+                   content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 302)
+        with self.db() as conn:
+            rel = conn.execute("""SELECT f.path FROM lesson_files f JOIN lessons l ON l.id = f.lesson_id
+                                  WHERE l.student_id = 50""").fetchone()[0]
+        path = os.path.join(self.app.config["UPLOAD_DIR"], rel)
+        self.assertTrue(os.path.isfile(path))
+        self.assertEqual(c.post("/veliler/50/sil", data={"_csrf": t}).status_code, 302)
+        self.assertFalse(os.path.exists(path))
+        with self.db() as conn:
+            self.assertIsNone(conn.execute("SELECT 1 FROM lessons WHERE student_id = 50").fetchone())
+
     # ------------------------------------------------------------ yardımcılar
     def staff(self):
         c = self.app.test_client()
@@ -101,19 +121,24 @@ class PortalTest(unittest.TestCase):
             self.assertEqual(lesson["start_min"], 600)
             self.assertTrue(conn.execute("SELECT 1 FROM audit_log WHERE action = 'Derste işlenen konu girildi'").fetchone())
 
-        # Ders kaydına PDF + ödev + gizli not; sahte PDF reddedilir
+        # Ders kaydına PDF + ödev + gizli not; sahte PDF reddedilir.
+        # Programa bağlı derste tarih/saat/tür alanları disabled: tarayıcı göndermez, istekte de yok.
         lid = lesson["id"]
         r = c.post(f"/dersler/{lid}", data={
-            "_csrf": t, "lesson_date": lesson["lesson_date"], "topic": "Türev: zincir kuralı", "homework": "s. 45",
+            "_csrf": t, "topic": "Türev: zincir kuralı", "homework": "s. 45",
             "private_note": "GIZLI-NOT-123",
             "files": [(io.BytesIO(PDF), "turev.pdf"), (io.BytesIO(b"not a pdf"), "sahte.pdf")],
         }, content_type="multipart/form-data", follow_redirects=True)
         body = r.get_data(as_text=True)
         self.assertIn("geçerli bir PDF değil", body)
         self.assertIn("turev.pdf", body)
+        self.assertIn("Ders kaydı kaydedildi", body)
         with self.db() as conn:
             files = conn.execute("SELECT * FROM lesson_files WHERE lesson_id = ?", (lid,)).fetchall()
+            saved = conn.execute("SELECT * FROM lessons WHERE id = ?", (lid,)).fetchone()
         self.assertEqual(len(files), 1)
+        self.assertEqual((saved["homework"], saved["lesson_date"], saved["start_min"]),
+                         ("s. 45", lesson["lesson_date"], 600))
         fid = files[0]["id"]
         self.assertEqual(c.get(f"/dersler/dosya/{fid}").status_code, 200)
 
@@ -121,7 +146,7 @@ class PortalTest(unittest.TestCase):
         c.patch(f"/api/program/{sid2}", json={"topic": "Başka aile konusu"}, headers=h)
         with self.db() as conn:
             lid2 = conn.execute("SELECT id FROM lessons WHERE slot_id = ?", (sid2,)).fetchone()[0]
-        c.post(f"/dersler/{lid2}", data={"_csrf": t, "lesson_date": "2026-01-01", "topic": "Başka aile konusu",
+        c.post(f"/dersler/{lid2}", data={"_csrf": t, "topic": "Başka aile konusu",
                                           "files": [(io.BytesIO(PDF), "baska.pdf")]}, content_type="multipart/form-data")
         with self.db() as conn:
             fid2 = conn.execute("SELECT id FROM lesson_files WHERE lesson_id = ?", (lid2,)).fetchone()[0]
